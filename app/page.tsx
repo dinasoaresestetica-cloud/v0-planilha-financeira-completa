@@ -1,16 +1,50 @@
+"use client"
+
+import { useState } from 'react'
+import { DataProvider } from '@/lib/data-context'
+import { Sidebar } from '@/components/dashboard/sidebar'
+import { DashboardHome } from '@/components/dashboard/dashboard-home'
+import { Receitas } from '@/components/dashboard/receitas'
+import { Gastos } from '@/components/dashboard/gastos'
+import { Trafego } from '@/components/dashboard/trafego'
+import { Parceiros } from '@/components/dashboard/parceiros'
+import { Clientes } from '@/components/dashboard/clientes'
+import { Ferramentas } from '@/components/dashboard/ferramentas'
+
 export default function Home() {
+  const [activeTab, setActiveTab] = useState('dashboard')
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return <DashboardHome />
+      case 'receitas':
+        return <Receitas />
+      case 'gastos':
+        return <Gastos />
+      case 'trafego':
+        return <Trafego />
+      case 'parceiros':
+        return <Parceiros />
+      case 'clientes':
+        return <Clientes />
+      case 'ferramentas':
+        return <Ferramentas />
+      default:
+        return <DashboardHome />
+    }
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center font-sans">
-      <main className="flex w-full max-w-3xl flex-col items-center gap-8 px-6 py-16 text-center sm:items-start sm:text-left">
-        <div className="flex flex-col gap-4">
-          <h1 className="text-4xl font-bold tracking-tight">
-            Planilha completa financneira
-          </h1>
-          <p className="max-w-md text-lg text-muted-foreground">
-            To get started, send a prompt or modify this page directly.
-          </p>
-        </div>
-      </main>
-    </div>
-  );
+    <DataProvider>
+      <div className="min-h-screen bg-background">
+        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        <main className="lg:pl-64">
+          <div className="container max-w-7xl mx-auto px-4 py-6 pt-16 lg:pt-6">
+            {renderContent()}
+          </div>
+        </main>
+      </div>
+    </DataProvider>
+  )
 }
