@@ -53,8 +53,8 @@ export function DashboardHome() {
   const totalFerramentas = ferramentas.reduce((sum, f) => sum + f.valor, 0)
   const gastosTotal = totalGastos + totalTrafego + totalFerramentas + totalRepasseParceiros
   
-  // Lucro liquido real
-  const lucroLiquido = faturamentoTotal - gastosTotal + totalTrafego // Ajuste: trafego ja esta nos gastos
+  // Lucro liquido real (faturamento - todos os gastos)
+  const lucroLiquido = faturamentoTotal - gastosTotal
   
   const clientesPagos = clientes.filter(c => c.status === 'pago').length
   const totalConversas = trafego.filter(t => {
