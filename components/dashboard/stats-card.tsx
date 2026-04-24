@@ -37,14 +37,14 @@ export function StatsCard({ title, value, subtitle, icon: Icon, variant = 'defau
   const styles = variantStyles[variant]
 
   return (
-    <Card className="relative overflow-hidden">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between">
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <p className="text-2xl font-bold text-foreground">{value}</p>
+    <Card className="relative overflow-hidden hover:shadow-md transition-shadow">
+      <CardContent className="p-5 lg:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1.5 min-w-0 flex-1">
+            <p className="text-sm font-medium text-muted-foreground truncate">{title}</p>
+            <p className="text-xl lg:text-2xl font-bold text-foreground truncate">{value}</p>
             {subtitle && (
-              <p className="text-xs text-muted-foreground">{subtitle}</p>
+              <p className="text-xs text-muted-foreground line-clamp-2">{subtitle}</p>
             )}
             {trend && (
               <div className="flex items-center gap-1 mt-2">
@@ -59,10 +59,10 @@ export function StatsCard({ title, value, subtitle, icon: Icon, variant = 'defau
             )}
           </div>
           <div className={cn(
-            "w-12 h-12 rounded-xl flex items-center justify-center",
+            "w-11 h-11 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center flex-shrink-0",
             styles.iconBg
           )}>
-            <Icon className={cn("h-6 w-6", styles.iconColor)} />
+            <Icon className={cn("h-5 w-5 lg:h-6 lg:w-6", styles.iconColor)} />
           </div>
         </div>
       </CardContent>

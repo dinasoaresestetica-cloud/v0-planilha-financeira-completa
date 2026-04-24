@@ -39,9 +39,11 @@ export default function Home() {
     <DataProvider>
       <div className="min-h-screen bg-background">
         <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-        <main className="lg:pl-64">
-          <div className="container max-w-7xl mx-auto px-4 py-6 pt-16 lg:pt-6">
-            {renderContent()}
+        <main className="lg:pl-72">
+          <div className="w-full px-4 py-6 pt-16 lg:pt-8 lg:px-8 xl:px-12 2xl:px-16">
+            <div className="max-w-[1600px] mx-auto">
+              {renderContent()}
+            </div>
           </div>
         </main>
       </div>

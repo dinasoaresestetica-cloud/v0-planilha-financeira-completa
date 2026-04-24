@@ -55,7 +55,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
 
       {/* Sidebar */}
       <aside className={cn(
-        "fixed left-0 top-0 z-40 h-screen w-64 bg-card border-r border-border transition-transform duration-300",
+        "fixed left-0 top-0 z-40 h-screen w-64 lg:w-72 bg-card border-r border-border transition-transform duration-300",
         "lg:translate-x-0",
         mobileOpen ? "translate-x-0" : "-translate-x-full"
       )}>

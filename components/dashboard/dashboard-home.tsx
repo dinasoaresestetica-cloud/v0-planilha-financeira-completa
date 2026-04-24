@@ -145,15 +145,15 @@ export function DashboardHome() {
   const COLORS = ['#3b82f6', '#22c55e', '#ef4444', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16']
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground">Visao geral do seu negocio</p>
+      <div className="pb-2">
+        <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard</h1>
+        <p className="text-muted-foreground mt-1">Visao geral do seu negocio</p>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
         <StatsCard
           title="Faturamento Total"
           value={formatCurrency(faturamentoTotal)}
@@ -199,7 +199,7 @@ export function DashboardHome() {
       </div>
 
       {/* Charts */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2 xl:gap-8">
         {/* Grafico de Faturamento x Gastos */}
         <Card>
           <CardHeader>
@@ -207,7 +207,7 @@ export function DashboardHome() {
           </CardHeader>
           <CardContent>
             {monthlyData.some(d => d.faturamento > 0 || d.gastos > 0) ? (
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={monthlyData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="name" className="text-xs" />
@@ -225,7 +225,7 @@ export function DashboardHome() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+              <div className="h-[350px] flex items-center justify-center text-muted-foreground">
                 <p>Nenhum dado disponivel. Adicione receitas ou gastos.</p>
               </div>
             )}
@@ -239,7 +239,7 @@ export function DashboardHome() {
           </CardHeader>
           <CardContent>
             {monthlyData.some(d => d.lucro !== 0) ? (
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={350}>
                 <LineChart data={monthlyData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="name" className="text-xs" />
@@ -263,7 +263,7 @@ export function DashboardHome() {
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+              <div className="h-[350px] flex items-center justify-center text-muted-foreground">
                 <p>Nenhum dado disponivel. Adicione receitas ou gastos.</p>
               </div>
             )}
@@ -277,7 +277,7 @@ export function DashboardHome() {
           </CardHeader>
           <CardContent>
             {gastosPorCategoria.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
+              <ResponsiveContainer width="100%" height={350}>
                 <PieChart>
                   <Pie
                     data={gastosPorCategoria}
@@ -305,7 +305,7 @@ export function DashboardHome() {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+              <div className="h-[350px] flex items-center justify-center text-muted-foreground">
                 <p>Nenhum gasto registrado este mes.</p>
               </div>
             )}
@@ -357,7 +357,7 @@ export function DashboardHome() {
       </div>
 
       {/* Resumos Adicionais */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 xl:gap-8">
         {/* Resumo Receitas */}
         <Card>
           <CardHeader>
