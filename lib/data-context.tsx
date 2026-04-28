@@ -1,7 +1,8 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import type { Receita, Gasto, TrafegoPago, Parceiro, VendaParceiro, Cliente, Ferramenta } from './types'
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import type { Receita, Gasto, TrafegoPago, Parceiro, VendaParceiro, ClienteSimples, Ferramenta, Criativo, HistoricoMensal } from './types'
+import { mesesNomes } from './types'
 
 interface DataContextType {
   receitas: Receita[]
@@ -9,8 +10,13 @@ interface DataContextType {
   trafego: TrafegoPago[]
   parceiros: Parceiro[]
   vendasParceiros: VendaParceiro[]
-  clientes: Cliente[]
+  clientes: ClienteSimples[]
   ferramentas: Ferramenta[]
+  criativos: Criativo[]
+  historico: HistoricoMensal[]
+  mesAtual: number
+  anoAtual: number
+  ultimoMesVerificado: string
   addReceita: (receita: Omit<Receita, 'id'>) => void
   updateReceita: (id: string, receita: Omit<Receita, 'id'>) => void
   deleteReceita: (id: string) => void
@@ -26,17 +32,21 @@ interface DataContextType {
   addVendaParceiro: (venda: Omit<VendaParceiro, 'id' | 'valorPagar'>) => void
   updateVendaParceiro: (id: string, venda: Omit<VendaParceiro, 'id' | 'valorPagar'>) => void
   deleteVendaParceiro: (id: string) => void
-  addCliente: (cliente: Omit<Cliente, 'id'>) => void
-  updateCliente: (id: string, cliente: Omit<Cliente, 'id'>) => void
+  addCliente: (cliente: Omit<ClienteSimples, 'id'>) => void
+  updateCliente: (id: string, cliente: Omit<ClienteSimples, 'id'>) => void
   deleteCliente: (id: string) => void
   addFerramenta: (ferramenta: Omit<Ferramenta, 'id'>) => void
   updateFerramenta: (id: string, ferramenta: Omit<Ferramenta, 'id'>) => void
   deleteFerramenta: (id: string) => void
+  addCriativo: (criativo: Omit<Criativo, 'id' | 'taxaConversao'>) => void
+  updateCriativo: (id: string, criativo: Omit<Criativo, 'id' | 'taxaConversao'>) => void
+  deleteCriativo: (id: string) => void
   getTotalReceitas: (mes?: number, ano?: number) => number
   getTotalGastos: (mes?: number, ano?: number) => number
   getLucro: (mes?: number, ano?: number) => number
   getTotalTrafego: (mes?: number, ano?: number) => number
   getTotalVendasTrafego: (mes?: number, ano?: number) => number
+  fecharMes: () => void
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined)
@@ -51,10 +61,74 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [trafego, setTrafego] = useState<TrafegoPago[]>([])
   const [parceiros, setParceiros] = useState<Parceiro[]>([])
   const [vendasParceiros, setVendasParceiros] = useState<VendaParceiro[]>([])
-  const [clientes, setClientes] = useState<Cliente[]>([])
+  const [clientes, setClientes] = useState<ClienteSimples[]>([])
   const [ferramentas, setFerramentas] = useState<Ferramenta[]>([])
+  const [criativos, setCriativos] = useState<Criativo[]>([])
+  const [historico, setHistorico] = useState<HistoricoMensal[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
+  const [ultimoMesVerificado, setUltimoMesVerificado] = useState('')
 
+  const now = new Date()
+  const mesAtual = now.getMonth() + 1
+  const anoAtual = now.getFullYear()
+
+  // Funcao para fechar o mes e salvar no historico
+  const fecharMes = useCallback(() => {
+    const mesAnterior = mesAtual === 1 ? 12 : mesAtual - 1
+    const anoAnterior = mesAtual === 1 ? anoAtual - 1 : anoAtual
+    const label = `${mesesNomes[mesAnterior - 1]} ${anoAnterior}`
+
+    // Verificar se ja existe historico para este mes
+    const jaExiste = historico.some(h => h.mes === mesAnterior && h.ano === anoAnterior)
+    if (jaExiste) return
+
+    // Calcular resumo
+    const faturamentoTotal = receitas.reduce((sum, r) => sum + r.valor, 0)
+    const gastosTotal = gastos.reduce((sum, g) => sum + g.valor, 0)
+    const investimentoTrafego = trafego.reduce((sum, t) => sum + t.valorInvestido, 0)
+    const vendasTrafego = trafego.reduce((sum, t) => sum + t.faturamento, 0)
+    const totalContatos = clientes.reduce((sum, c) => sum + c.contatos, 0)
+    const totalFechados = clientes.reduce((sum, c) => sum + c.fechados, 0)
+    const taxaConversao = totalContatos > 0 ? (totalFechados / totalContatos) * 100 : 0
+    const lucroLiquido = faturamentoTotal + vendasTrafego - gastosTotal - investimentoTrafego
+
+    const novoHistorico: HistoricoMensal = {
+      id: generateId(),
+      mes: mesAnterior,
+      ano: anoAnterior,
+      label,
+      dataFechamento: new Date().toISOString(),
+      resumo: {
+        faturamentoTotal,
+        gastosTotal,
+        lucroLiquido,
+        investimentoTrafego,
+        vendasTrafego,
+        totalContatos,
+        totalFechados,
+        taxaConversao,
+      },
+      receitas: [...receitas],
+      gastos: [...gastos],
+      trafego: [...trafego],
+      vendasParceiros: [...vendasParceiros],
+      clientes: [...clientes],
+      criativos: [...criativos],
+    }
+
+    // Salvar historico e zerar dados operacionais
+    setHistorico(prev => [...prev, novoHistorico])
+    setReceitas([])
+    setGastos([])
+    setTrafego([])
+    setVendasParceiros([])
+    setClientes([])
+    setCriativos([])
+    // Parceiros e ferramentas NAO sao zerados (sao cadastros permanentes)
+
+  }, [receitas, gastos, trafego, vendasParceiros, clientes, criativos, historico, mesAtual, anoAtual])
+
+  // Verificar se mudou o mes ao carregar
   useEffect(() => {
     const stored = localStorage.getItem('financeiro-data')
     if (stored) {
@@ -66,9 +140,29 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setVendasParceiros(data.vendasParceiros || [])
       setClientes(data.clientes || [])
       setFerramentas(data.ferramentas || [])
+      setCriativos(data.criativos || [])
+      setHistorico(data.historico || [])
+      setUltimoMesVerificado(data.ultimoMesVerificado || '')
     }
     setIsLoaded(true)
   }, [])
+
+  // Verificar fechamento de mes automatico
+  useEffect(() => {
+    if (!isLoaded) return
+
+    const mesAnoAtual = `${mesAtual}-${anoAtual}`
+    
+    // Se mudou o mes desde a ultima verificacao
+    if (ultimoMesVerificado && ultimoMesVerificado !== mesAnoAtual) {
+      // Verificar se tem dados do mes anterior para arquivar
+      if (receitas.length > 0 || gastos.length > 0 || trafego.length > 0 || clientes.length > 0 || criativos.length > 0) {
+        fecharMes()
+      }
+    }
+    
+    setUltimoMesVerificado(mesAnoAtual)
+  }, [isLoaded, mesAtual, anoAtual, ultimoMesVerificado, fecharMes, receitas, gastos, trafego, clientes, criativos])
 
   useEffect(() => {
     if (isLoaded) {
@@ -80,9 +174,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
         vendasParceiros,
         clientes,
         ferramentas,
+        criativos,
+        historico,
+        ultimoMesVerificado,
       }))
     }
-  }, [receitas, gastos, trafego, parceiros, vendasParceiros, clientes, ferramentas, isLoaded])
+  }, [receitas, gastos, trafego, parceiros, vendasParceiros, clientes, ferramentas, criativos, historico, ultimoMesVerificado, isLoaded])
 
   const addReceita = (receita: Omit<Receita, 'id'>) => {
     setReceitas(prev => [...prev, { ...receita, id: generateId() }])
@@ -150,11 +247,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setVendasParceiros(prev => prev.filter(v => v.id !== id))
   }
 
-  const addCliente = (cliente: Omit<Cliente, 'id'>) => {
+  const addCliente = (cliente: Omit<ClienteSimples, 'id'>) => {
     setClientes(prev => [...prev, { ...cliente, id: generateId() }])
   }
 
-  const updateCliente = (id: string, cliente: Omit<Cliente, 'id'>) => {
+  const updateCliente = (id: string, cliente: Omit<ClienteSimples, 'id'>) => {
     setClientes(prev => prev.map(c => c.id === id ? { ...cliente, id } : c))
   }
 
@@ -172,6 +269,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const deleteFerramenta = (id: string) => {
     setFerramentas(prev => prev.filter(f => f.id !== id))
+  }
+
+  const addCriativo = (criativo: Omit<Criativo, 'id' | 'taxaConversao'>) => {
+    const taxaConversao = criativo.pessoasAlcancadas > 0 
+      ? (criativo.conversoes / criativo.pessoasAlcancadas) * 100 
+      : 0
+    setCriativos(prev => [...prev, { ...criativo, taxaConversao, id: generateId() }])
+  }
+
+  const updateCriativo = (id: string, criativo: Omit<Criativo, 'id' | 'taxaConversao'>) => {
+    const taxaConversao = criativo.pessoasAlcancadas > 0 
+      ? (criativo.conversoes / criativo.pessoasAlcancadas) * 100 
+      : 0
+    setCriativos(prev => prev.map(c => c.id === id ? { ...criativo, taxaConversao, id } : c))
+  }
+
+  const deleteCriativo = (id: string) => {
+    setCriativos(prev => prev.filter(c => c.id !== id))
   }
 
   const filterByDate = <T extends { data: string }>(items: T[], mes?: number, ano?: number) => {
@@ -213,6 +328,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       vendasParceiros,
       clientes,
       ferramentas,
+      criativos,
+      historico,
+      mesAtual,
+      anoAtual,
+      ultimoMesVerificado,
       addReceita,
       updateReceita,
       deleteReceita,
@@ -234,11 +354,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addFerramenta,
       updateFerramenta,
       deleteFerramenta,
+      addCriativo,
+      updateCriativo,
+      deleteCriativo,
       getTotalReceitas,
       getTotalGastos,
       getLucro,
       getTotalTrafego,
       getTotalVendasTrafego,
+      fecharMes,
     }}>
       {children}
     </DataContext.Provider>

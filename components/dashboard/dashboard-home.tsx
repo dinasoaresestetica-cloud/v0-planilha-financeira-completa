@@ -56,7 +56,11 @@ export function DashboardHome() {
   // Lucro liquido real (faturamento - todos os gastos)
   const lucroLiquido = faturamentoTotal - gastosTotal
   
-  const clientesPagos = clientes.filter(c => c.status === 'pago').length
+  // Clientes do mes (novo formato simplificado)
+  const totalContatos = clientes.reduce((sum, c) => sum + c.contatos, 0)
+  const totalFechados = clientes.reduce((sum, c) => sum + c.fechados, 0)
+  const taxaConversaoClientes = totalContatos > 0 ? (totalFechados / totalContatos) * 100 : 0
+  
   const totalConversas = trafego.filter(t => {
     const date = new Date(t.data)
     return date.getMonth() + 1 === currentMonth && date.getFullYear() === currentYear
@@ -184,8 +188,8 @@ export function DashboardHome() {
         />
         <StatsCard
           title="Clientes"
-          value={clientes.length.toString()}
-          subtitle={`${clientesPagos} pagos | ${clientes.length - clientesPagos} pendentes`}
+          value={totalFechados.toString()}
+          subtitle={`${totalContatos} contatos | ${taxaConversaoClientes.toFixed(1)}% conversao`}
           icon={Users}
           variant="default"
         />

@@ -7,9 +7,11 @@ import { DashboardHome } from '@/components/dashboard/dashboard-home'
 import { Receitas } from '@/components/dashboard/receitas'
 import { Gastos } from '@/components/dashboard/gastos'
 import { Trafego } from '@/components/dashboard/trafego'
+import { Criativos } from '@/components/dashboard/criativos'
 import { Parceiros } from '@/components/dashboard/parceiros'
 import { Clientes } from '@/components/dashboard/clientes'
 import { Ferramentas } from '@/components/dashboard/ferramentas'
+import { Historico } from '@/components/dashboard/historico'
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -24,12 +26,16 @@ export default function Home() {
         return <Gastos />
       case 'trafego':
         return <Trafego />
+      case 'criativos':
+        return <Criativos />
       case 'parceiros':
         return <Parceiros />
       case 'clientes':
         return <Clientes />
       case 'ferramentas':
         return <Ferramentas />
+      case 'historico':
+        return <Historico />
       default:
         return <DashboardHome />
     }
