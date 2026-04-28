@@ -10,7 +10,9 @@ import {
   UserCheck,
   Wrench,
   Menu,
-  X
+  X,
+  Image,
+  History
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
@@ -25,9 +27,11 @@ const menuItems = [
   { id: 'receitas', label: 'Faturamento', icon: TrendingUp },
   { id: 'gastos', label: 'Gastos', icon: TrendingDown },
   { id: 'trafego', label: 'Trafego Pago', icon: Megaphone },
+  { id: 'criativos', label: 'Criativos', icon: Image },
   { id: 'parceiros', label: 'Parceiros', icon: Users },
   { id: 'clientes', label: 'Clientes', icon: UserCheck },
   { id: 'ferramentas', label: 'Ferramentas', icon: Wrench },
+  { id: 'historico', label: 'Historico', icon: History },
 ]
 
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {

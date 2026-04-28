@@ -47,12 +47,12 @@ export interface VendaParceiro {
   dataPagamento?: string
 }
 
-export interface Cliente {
+// Cliente simplificado - apenas contatos e fechados
+export interface ClienteSimples {
   id: string
-  nome: string
   data: string
-  valor: number
-  status: 'pago' | 'pendente'
+  contatos: number
+  fechados: number
   origem: string
 }
 
@@ -61,6 +61,42 @@ export interface Ferramenta {
   nome: string
   tipo: string
   valor: number
+}
+
+// Criativo para trafego pago
+export interface Criativo {
+  id: string
+  data: string
+  nome: string
+  plataforma: string
+  pessoasAlcancadas: number
+  conversoes: number
+  taxaConversao: number
+}
+
+// Historico mensal - snapshot de todos os dados do mes
+export interface HistoricoMensal {
+  id: string
+  mes: number
+  ano: number
+  label: string // ex: "Janeiro 2026"
+  dataFechamento: string
+  resumo: {
+    faturamentoTotal: number
+    gastosTotal: number
+    lucroLiquido: number
+    investimentoTrafego: number
+    vendasTrafego: number
+    totalContatos: number
+    totalFechados: number
+    taxaConversao: number
+  }
+  receitas: Receita[]
+  gastos: Gasto[]
+  trafego: TrafegoPago[]
+  vendasParceiros: VendaParceiro[]
+  clientes: ClienteSimples[]
+  criativos: Criativo[]
 }
 
 export type CategoriaGasto = 
@@ -97,19 +133,12 @@ export const tiposServico = [
 
 export const formasPagamento = [
   'Pix',
-  'Dinheiro',
-  'Cartao de Credito',
-  'Cartao de Debito',
-  'Transferencia',
-  'Boleto',
 ]
 
 export const origensCliente = [
   'Trafego Pago',
   'Organico',
-  'Parceiro',
   'Indicacao',
-  'Redes Sociais',
 ]
 
 export const plataformasTrafego = [
@@ -127,4 +156,9 @@ export const tiposFerramenta = [
   'Gestao',
   'Comunicacao',
   'Outro',
+]
+
+export const mesesNomes = [
+  'Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
 ]
