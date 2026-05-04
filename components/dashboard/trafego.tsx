@@ -147,10 +147,14 @@ export function Trafego() {
       }
     })
     
-    return Object.entries(last30Days).map(([date, values]) => ({
-      date: new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-      ...values,
-    }))
+    return Object.entries(last30Days).map(([dateKey, values]) => {
+      // Formatar data sem conversao de timezone
+      const [year, month, day] = dateKey.split('-')
+      return {
+        date: `${day}/${month}`,
+        ...values,
+      }
+    })
   }
 
   return (

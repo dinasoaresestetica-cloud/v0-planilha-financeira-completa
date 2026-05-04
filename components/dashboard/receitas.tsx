@@ -21,6 +21,18 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
+// Formatar data sem conversao de timezone (evita erro de -1 dia)
+function formatDate(dateString: string) {
+  const [year, month, day] = dateString.split('-')
+  return `${day}/${month}/${year}`
+}
+
+// Extrair partes da data sem conversao de timezone
+function getDateParts(dateString: string) {
+  const [year, month, day] = dateString.split('-').map(Number)
+  return { year, month, day }
+}
+
 export function Receitas() {
   const { receitas, addReceita, updateReceita, deleteReceita, getTotalReceitas } = useData()
   const [isOpen, setIsOpen] = useState(false)
@@ -88,10 +100,16 @@ export function Receitas() {
 
   const filteredReceitas = receitas.filter(r => {
     if (!filterMonth) return true
-    const date = new Date(r.data)
-    const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    const { year, month } = getDateParts(r.data)
+    const monthYear = `${year}-${String(month).padStart(2, '0')}`
     return monthYear === filterMonth
-  }).sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+  }).sort((a, b) => {
+    const dateA = getDateParts(a.data)
+    const dateB = getDateParts(b.data)
+    const timeA = new Date(dateA.year, dateA.month - 1, dateA.day).getTime()
+    const timeB = new Date(dateB.year, dateB.month - 1, dateB.day).getTime()
+    return timeB - timeA
+  })
 
   const now = new Date()
   const totalMes = getTotalReceitas(now.getMonth() + 1, now.getFullYear())
@@ -114,10 +132,14 @@ export function Receitas() {
       }
     })
     
-    return Object.entries(last30Days).map(([date, value]) => ({
-      date: new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-      valor: value,
-    }))
+    return Object.entries(last30Days).map(([dateKey, value]) => {
+      // Formatar data sem conversao de timezone
+      const [year, month, day] = dateKey.split('-')
+      return {
+        date: `${day}/${month}`,
+        valor: value,
+      }
+    })
   }
 
   return (
@@ -342,7 +364,7 @@ export function Receitas() {
               ) : (
                 filteredReceitas.map((receita) => (
                   <TableRow key={receita.id}>
-                    <TableCell>{new Date(receita.data).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell>{formatDate(receita.data)}</TableCell>
                     <TableCell className="font-medium">{receita.cliente}</TableCell>
                     <TableCell>{receita.tipoServico}</TableCell>
                     <TableCell>{receita.origem}</TableCell>
