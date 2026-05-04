@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useData } from '@/lib/data-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -19,8 +19,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 interface ClienteAnalise {
   id: string
   data: string
-  tipo: 'novo' | 'antigo'
+  quantidadeClientes: number
   quantidadeCompras: number
+  tipo: 'novo' | 'antigo'
   valorTotal: number
 }
 
@@ -37,40 +38,53 @@ function formatDate(dateString: string) {
   return `${day}/${month}/${year}`
 }
 
+// Extrair partes da data sem conversao de timezone
+function getDateParts(dateString: string) {
+  const [year, month, day] = dateString.split('-').map(Number)
+  return { year, month, day }
+}
+
 const COLORS = ['#3b82f6', '#22c55e']
 
 export function AnaliseClientes() {
   const { mesAtual, anoAtual } = useData()
-  const [clientes, setClientes] = useState<ClienteAnalise[]>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('analise-clientes')
-      return stored ? JSON.parse(stored) : []
-    }
-    return []
-  })
+  const [clientes, setClientes] = useState<ClienteAnalise[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [isLoaded, setIsLoaded] = useState(false)
+
+  // Carregar do localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('analise-clientes-v2')
+      if (stored) {
+        setClientes(JSON.parse(stored))
+      }
+      setIsLoaded(true)
+    }
+  }, [])
+
+  // Salvar no localStorage
+  useEffect(() => {
+    if (isLoaded && typeof window !== 'undefined') {
+      localStorage.setItem('analise-clientes-v2', JSON.stringify(clientes))
+    }
+  }, [clientes, isLoaded])
 
   const [formData, setFormData] = useState({
     data: new Date().toISOString().split('T')[0],
-    tipo: 'novo' as 'novo' | 'antigo',
+    quantidadeClientes: '',
     quantidadeCompras: '',
+    tipo: 'novo' as 'novo' | 'antigo',
     valorTotal: '',
   })
-
-  // Persistir no localStorage
-  const saveClientes = (newClientes: ClienteAnalise[]) => {
-    setClientes(newClientes)
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('analise-clientes', JSON.stringify(newClientes))
-    }
-  }
 
   const resetForm = () => {
     setFormData({
       data: new Date().toISOString().split('T')[0],
-      tipo: 'novo',
+      quantidadeClientes: '',
       quantidadeCompras: '',
+      tipo: 'novo',
       valorTotal: '',
     })
     setEditingId(null)
@@ -81,15 +95,16 @@ export function AnaliseClientes() {
     const cliente: ClienteAnalise = {
       id: editingId || Math.random().toString(36).substring(2, 15),
       data: formData.data,
-      tipo: formData.tipo,
+      quantidadeClientes: parseInt(formData.quantidadeClientes) || 0,
       quantidadeCompras: parseInt(formData.quantidadeCompras) || 0,
+      tipo: formData.tipo,
       valorTotal: parseFloat(formData.valorTotal) || 0,
     }
 
     if (editingId) {
-      saveClientes(clientes.map(c => c.id === editingId ? cliente : c))
+      setClientes(prev => prev.map(c => c.id === editingId ? cliente : c))
     } else {
-      saveClientes([...clientes, cliente])
+      setClientes(prev => [...prev, cliente])
     }
     
     setIsOpen(false)
@@ -99,8 +114,9 @@ export function AnaliseClientes() {
   const handleEdit = (cliente: ClienteAnalise) => {
     setFormData({
       data: cliente.data,
-      tipo: cliente.tipo,
+      quantidadeClientes: cliente.quantidadeClientes.toString(),
       quantidadeCompras: cliente.quantidadeCompras.toString(),
+      tipo: cliente.tipo,
       valorTotal: cliente.valorTotal.toString(),
     })
     setEditingId(cliente.id)
@@ -108,16 +124,22 @@ export function AnaliseClientes() {
   }
 
   const handleDelete = (id: string) => {
-    saveClientes(clientes.filter(c => c.id !== id))
+    setClientes(prev => prev.filter(c => c.id !== id))
   }
 
-  // Calculos
-  const clientesNovos = clientes.filter(c => c.tipo === 'novo')
-  const clientesAntigos = clientes.filter(c => c.tipo === 'antigo')
+  // Filtrar clientes do mes atual
+  const clientesMesAtual = clientes.filter(c => {
+    const { year, month } = getDateParts(c.data)
+    return month === mesAtual && year === anoAtual
+  })
+
+  // Calculos - do mes atual
+  const clientesNovos = clientesMesAtual.filter(c => c.tipo === 'novo')
+  const clientesAntigos = clientesMesAtual.filter(c => c.tipo === 'antigo')
   
-  const totalClientes = clientes.length
-  const qtdNovos = clientesNovos.length
-  const qtdAntigos = clientesAntigos.length
+  const totalClientes = clientesMesAtual.reduce((sum, c) => sum + c.quantidadeClientes, 0)
+  const qtdNovos = clientesNovos.reduce((sum, c) => sum + c.quantidadeClientes, 0)
+  const qtdAntigos = clientesAntigos.reduce((sum, c) => sum + c.quantidadeClientes, 0)
   
   const vendasNovos = clientesNovos.reduce((sum, c) => sum + c.quantidadeCompras, 0)
   const vendasAntigos = clientesAntigos.reduce((sum, c) => sum + c.quantidadeCompras, 0)
@@ -127,8 +149,9 @@ export function AnaliseClientes() {
   const valorAntigos = clientesAntigos.reduce((sum, c) => sum + c.valorTotal, 0)
   const valorTotal = valorNovos + valorAntigos
   
-  const ticketMedioNovos = qtdNovos > 0 ? valorNovos / vendasNovos : 0
-  const ticketMedioAntigos = qtdAntigos > 0 ? valorAntigos / vendasAntigos : 0
+  const ticketMedioNovos = vendasNovos > 0 ? valorNovos / vendasNovos : 0
+  const ticketMedioAntigos = vendasAntigos > 0 ? valorAntigos / vendasAntigos : 0
+  const ticketMedioGeral = totalVendas > 0 ? valorTotal / totalVendas : 0
 
   // Dados para graficos
   const dadosPorTipo = [
@@ -141,7 +164,14 @@ export function AnaliseClientes() {
     { name: 'Antigos', value: valorAntigos },
   ].filter(d => d.value > 0)
 
-  const sortedClientes = [...clientes].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+  // Ordenar por data mais recente
+  const sortedClientes = [...clientesMesAtual].sort((a, b) => {
+    const dateA = getDateParts(a.data)
+    const dateB = getDateParts(b.data)
+    const timeA = new Date(dateA.year, dateA.month - 1, dateA.day).getTime()
+    const timeB = new Date(dateB.year, dateB.month - 1, dateB.day).getTime()
+    return timeB - timeA
+  })
 
   return (
     <div className="space-y-8">
@@ -195,6 +225,17 @@ export function AnaliseClientes() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Field>
+                    <FieldLabel>Qtd de Clientes</FieldLabel>
+                    <Input
+                      type="number"
+                      min="1"
+                      placeholder="1"
+                      value={formData.quantidadeClientes}
+                      onChange={(e) => setFormData({ ...formData, quantidadeClientes: e.target.value })}
+                      required
+                    />
+                  </Field>
+                  <Field>
                     <FieldLabel>Qtd de Compras</FieldLabel>
                     <Input
                       type="number"
@@ -205,18 +246,18 @@ export function AnaliseClientes() {
                       required
                     />
                   </Field>
-                  <Field>
-                    <FieldLabel>Valor Total (Pix)</FieldLabel>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0,00"
-                      value={formData.valorTotal}
-                      onChange={(e) => setFormData({ ...formData, valorTotal: e.target.value })}
-                      required
-                    />
-                  </Field>
                 </div>
+                <Field>
+                  <FieldLabel>Valor Total (Pix)</FieldLabel>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="0,00"
+                    value={formData.valorTotal}
+                    onChange={(e) => setFormData({ ...formData, valorTotal: e.target.value })}
+                    required
+                  />
+                </Field>
               </FieldGroup>
               <div className="flex gap-2 justify-end">
                 <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
@@ -256,7 +297,7 @@ export function AnaliseClientes() {
         />
         <StatsCard
           title="Ticket Medio"
-          value={formatCurrency(totalVendas > 0 ? valorTotal / totalVendas : 0)}
+          value={formatCurrency(ticketMedioGeral)}
           subtitle="Valor medio por venda"
           icon={DollarSign}
           variant="success"
@@ -337,7 +378,7 @@ export function AnaliseClientes() {
             <CardTitle className="text-base font-semibold">Comparativo Novos x Antigos</CardTitle>
           </CardHeader>
           <CardContent>
-            {clientes.length > 0 ? (
+            {clientesMesAtual.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={dadosPorTipo}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
@@ -411,7 +452,7 @@ export function AnaliseClientes() {
       {/* Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base font-semibold">Registro de Clientes</CardTitle>
+          <CardTitle className="text-base font-semibold">Registro de Clientes - {mesesNomes[mesAtual - 1]} {anoAtual}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -419,6 +460,7 @@ export function AnaliseClientes() {
               <TableRow>
                 <TableHead>Data</TableHead>
                 <TableHead>Tipo</TableHead>
+                <TableHead className="text-right">Qtd Clientes</TableHead>
                 <TableHead className="text-right">Qtd Compras</TableHead>
                 <TableHead className="text-right">Valor Total</TableHead>
                 <TableHead className="w-[100px]">Acoes</TableHead>
@@ -427,8 +469,8 @@ export function AnaliseClientes() {
             <TableBody>
               {sortedClientes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    Nenhum cliente registrado
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    Nenhum cliente registrado neste mes
                   </TableCell>
                 </TableRow>
               ) : (
@@ -441,6 +483,7 @@ export function AnaliseClientes() {
                         {cliente.tipo === 'novo' ? 'Novo' : 'Antigo'}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-right">{cliente.quantidadeClientes}</TableCell>
                     <TableCell className="text-right">{cliente.quantidadeCompras}</TableCell>
                     <TableCell className="text-right font-semibold text-green-600">{formatCurrency(cliente.valorTotal)}</TableCell>
                     <TableCell>

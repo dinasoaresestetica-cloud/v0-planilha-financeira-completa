@@ -27,6 +27,12 @@ function formatDate(dateString: string) {
   return `${day}/${month}/${year}`
 }
 
+// Extrair partes da data sem conversao de timezone
+function getDateParts(dateString: string) {
+  const [year, month, day] = dateString.split('-').map(Number)
+  return { year, month, day }
+}
+
 export function Trafego() {
   const { trafego, addTrafego, updateTrafego, deleteTrafego, getTotalTrafego, getTotalVendasTrafego } = useData()
   const [isOpen, setIsOpen] = useState(false)
@@ -90,10 +96,16 @@ export function Trafego() {
 
   const filteredTrafego = trafego.filter(t => {
     if (!filterMonth) return true
-    const date = new Date(t.data)
-    const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    const { year, month } = getDateParts(t.data)
+    const monthYear = `${year}-${String(month).padStart(2, '0')}`
     return monthYear === filterMonth
-  }).sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+  }).sort((a, b) => {
+    const dateA = getDateParts(a.data)
+    const dateB = getDateParts(b.data)
+    const timeA = new Date(dateA.year, dateA.month - 1, dateA.day).getTime()
+    const timeB = new Date(dateB.year, dateB.month - 1, dateB.day).getTime()
+    return timeB - timeA
+  })
 
   const now = new Date()
   const totalInvestido = getTotalTrafego(now.getMonth() + 1, now.getFullYear())

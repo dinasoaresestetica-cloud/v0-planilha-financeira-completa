@@ -289,12 +289,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setCriativos(prev => prev.filter(c => c.id !== id))
   }
 
+  // Funcao para extrair mes/ano de string YYYY-MM-DD sem conversao de timezone
+  const getDateParts = (dateString: string) => {
+    const [year, month, day] = dateString.split('-').map(Number)
+    return { year, month, day }
+  }
+
   const filterByDate = <T extends { data: string }>(items: T[], mes?: number, ano?: number) => {
     if (!mes && !ano) return items
     return items.filter(item => {
-      const date = new Date(item.data)
-      const matchMonth = mes ? date.getMonth() + 1 === mes : true
-      const matchYear = ano ? date.getFullYear() === ano : true
+      const { year, month } = getDateParts(item.data)
+      const matchMonth = mes ? month === mes : true
+      const matchYear = ano ? year === ano : true
       return matchMonth && matchYear
     })
   }

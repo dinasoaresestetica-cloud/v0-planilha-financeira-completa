@@ -3,9 +3,20 @@
 import { useData } from '@/lib/data-context'
 import { StatsCard } from './stats-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { DollarSign, TrendingUp, TrendingDown, Users, Megaphone, ShoppingCart } from 'lucide-react'
+import { DollarSign, TrendingUp, TrendingDown, Users, Megaphone, ShoppingCart, UserPlus, UserCheck } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
 import { categoriasGasto } from '@/lib/types'
+import { useState, useEffect } from 'react'
+
+// Tipo para cliente na analise
+interface ClienteAnalise {
+  id: string
+  data: string
+  quantidadeClientes: number
+  quantidadeCompras: number
+  tipo: 'novo' | 'antigo'
+  valorTotal: number
+}
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', {
@@ -18,6 +29,12 @@ function formatCurrency(value: number) {
 function formatDate(dateString: string) {
   const [year, month, day] = dateString.split('-')
   return `${day}/${month}/${year}`
+}
+
+// Extrair partes da data sem conversao de timezone
+function getDateParts(dateString: string) {
+  const [year, month, day] = dateString.split('-').map(Number)
+  return { year, month, day }
 }
 
 export function DashboardHome() {
@@ -34,6 +51,35 @@ export function DashboardHome() {
   const now = new Date()
   const currentMonth = now.getMonth() + 1
   const currentYear = now.getFullYear()
+
+  // Carregar dados de clientes da aba de analise
+  const [clientesAnalise, setClientesAnalise] = useState<ClienteAnalise[]>([])
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('analise-clientes-v2')
+      if (stored) {
+        setClientesAnalise(JSON.parse(stored))
+      }
+    }
+  }, [])
+
+  // Filtrar clientes do mes atual
+  const clientesMesAtual = clientesAnalise.filter(c => {
+    const { year, month } = getDateParts(c.data)
+    return month === currentMonth && year === currentYear
+  })
+
+  // Calculos de clientes
+  const clientesNovos = clientesMesAtual.filter(c => c.tipo === 'novo')
+  const clientesAntigos = clientesMesAtual.filter(c => c.tipo === 'antigo')
+  const totalClientesNovos = clientesNovos.reduce((sum, c) => sum + c.quantidadeClientes, 0)
+  const totalClientesAntigos = clientesAntigos.reduce((sum, c) => sum + c.quantidadeClientes, 0)
+  const totalClientes = totalClientesNovos + totalClientesAntigos
+  const valorClientesNovos = clientesNovos.reduce((sum, c) => sum + c.valorTotal, 0)
+  const valorClientesAntigos = clientesAntigos.reduce((sum, c) => sum + c.valorTotal, 0)
+  const totalVendasClientes = clientesNovos.reduce((sum, c) => sum + c.quantidadeCompras, 0) + 
+    clientesAntigos.reduce((sum, c) => sum + c.quantidadeCompras, 0)
 
   // Calculos automaticos baseados em todos os dados
   const totalVendasTrafego = getTotalVendasTrafego(currentMonth, currentYear)
@@ -55,12 +101,12 @@ export function DashboardHome() {
   const lucroLiquido = faturamentoTotal - gastosTotal - lucroParceiros
   
   const totalConversas = trafego.filter(t => {
-    const date = new Date(t.data)
-    return date.getMonth() + 1 === currentMonth && date.getFullYear() === currentYear
+    const { year, month } = getDateParts(t.data)
+    return month === currentMonth && year === currentYear
   }).reduce((sum, t) => sum + t.conversas, 0)
   const totalVendasTrafegoCount = trafego.filter(t => {
-    const date = new Date(t.data)
-    return date.getMonth() + 1 === currentMonth && date.getFullYear() === currentYear
+    const { year, month } = getDateParts(t.data)
+    return month === currentMonth && year === currentYear
   }).reduce((sum, t) => sum + t.vendas, 0)
 
   // Dados para grafico de faturamento por mes
@@ -72,8 +118,8 @@ export function DashboardHome() {
       // Vendas do trafego pago
       const vendasTrafegoMes = trafego
         .filter(t => {
-          const date = new Date(t.data)
-          return date.getMonth() + 1 === mes && date.getFullYear() === currentYear
+          const { year, month } = getDateParts(t.data)
+          return month === mes && year === currentYear
         })
         .reduce((sum, t) => sum + t.faturamento, 0)
       
@@ -82,16 +128,16 @@ export function DashboardHome() {
       // Gastos do mes
       const gastosMes = gastos
         .filter(g => {
-          const date = new Date(g.data)
-          return date.getMonth() + 1 === mes && date.getFullYear() === currentYear
+          const { year, month } = getDateParts(g.data)
+          return month === mes && year === currentYear
         })
         .reduce((sum, g) => sum + g.valor, 0)
       
       // Investimento em trafego
       const trafegoMes = trafego
         .filter(t => {
-          const date = new Date(t.data)
-          return date.getMonth() + 1 === mes && date.getFullYear() === currentYear
+          const { year, month } = getDateParts(t.data)
+          return month === mes && year === currentYear
         })
         .reduce((sum, t) => sum + t.valorInvestido, 0)
       
@@ -112,8 +158,8 @@ export function DashboardHome() {
   // Dados para grafico de gastos por categoria (inclui ferramentas)
   const getGastosPorCategoria = () => {
     const gastosMes = gastos.filter(g => {
-      const date = new Date(g.data)
-      return date.getMonth() + 1 === currentMonth && date.getFullYear() === currentYear
+      const { year, month } = getDateParts(g.data)
+      return month === currentMonth && year === currentYear
     })
 
     const categoriasDados = categoriasGasto.map(cat => ({
@@ -357,6 +403,76 @@ export function DashboardHome() {
         </Card>
       </div>
 
+      {/* Resumo de Clientes */}
+      {totalClientes > 0 && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card className="border-blue-500/30 bg-blue-500/5">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                  <UserPlus className="h-5 w-5 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Clientes Novos</p>
+                  <p className="text-xl font-bold">{totalClientesNovos}</p>
+                </div>
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                {formatCurrency(valorClientesNovos)} em vendas
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-green-500/30 bg-green-500/5">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                  <UserCheck className="h-5 w-5 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Clientes Antigos</p>
+                  <p className="text-xl font-bold">{totalClientesAntigos}</p>
+                </div>
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                {formatCurrency(valorClientesAntigos)} em vendas
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Clientes</p>
+                  <p className="text-xl font-bold">{totalClientes}</p>
+                </div>
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                {totalVendasClientes} vendas realizadas
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                  <DollarSign className="h-5 w-5 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Receita Clientes</p>
+                  <p className="text-xl font-bold">{formatCurrency(valorClientesNovos + valorClientesAntigos)}</p>
+                </div>
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                {totalClientes > 0 ? formatCurrency((valorClientesNovos + valorClientesAntigos) / totalVendasClientes) : 'R$ 0'} ticket medio
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Resumos Adicionais */}
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 xl:gap-8">
         {/* Resumo Faturamento */}
@@ -369,6 +485,12 @@ export function DashboardHome() {
               <span className="text-sm">Vendas Trafego Pago</span>
               <span className="font-semibold text-sm">{formatCurrency(totalVendasTrafego)}</span>
             </div>
+            {(valorClientesNovos + valorClientesAntigos) > 0 && (
+              <div className="flex justify-between items-center p-2 bg-accent/30 rounded">
+                <span className="text-sm">Vendas Clientes</span>
+                <span className="font-semibold text-sm">{formatCurrency(valorClientesNovos + valorClientesAntigos)}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center p-3 bg-primary/10 rounded border border-primary/20 mt-2">
               <span className="font-medium">Total Faturamento</span>
               <span className="font-bold text-primary">{formatCurrency(faturamentoTotal)}</span>
