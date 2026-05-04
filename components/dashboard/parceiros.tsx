@@ -5,15 +5,13 @@ import { useData } from '@/lib/data-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
-import { Plus, Pencil, Trash2, Users, DollarSign, Clock, CheckCircle } from 'lucide-react'
-import { type Parceiro, type VendaParceiro } from '@/lib/types'
+import { Plus, Pencil, Trash2, Users, DollarSign, Percent, PieChart } from 'lucide-react'
+import { type Parceiro, mesesNomes } from '@/lib/types'
 import { StatsCard } from './stats-card'
+import { PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', {
@@ -22,517 +20,341 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
+const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16']
+
 export function Parceiros() {
   const { 
     parceiros, 
-    vendasParceiros, 
+    trafego,
+    getTotalVendasTrafego,
     addParceiro, 
     updateParceiro, 
     deleteParceiro,
-    addVendaParceiro,
-    updateVendaParceiro,
-    deleteVendaParceiro,
+    mesAtual,
+    anoAtual,
   } = useData()
 
-  const [activeTab, setActiveTab] = useState('vendas')
-  const [isParceiroOpen, setIsParceiroOpen] = useState(false)
-  const [isVendaOpen, setIsVendaOpen] = useState(false)
-  const [editingParceiroId, setEditingParceiroId] = useState<string | null>(null)
-  const [editingVendaId, setEditingVendaId] = useState<string | null>(null)
+  const [isOpen, setIsOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
-  const [parceiroForm, setParceiroForm] = useState({
+  const [formData, setFormData] = useState({
     nome: '',
     porcentagem: '',
   })
 
-  const [vendaForm, setVendaForm] = useState({
-    parceiroId: '',
-    data: new Date().toISOString().split('T')[0],
-    mensagens: '',
-    vendas: '',
-    valorTotal: '',
-    status: 'pendente' as 'pendente' | 'pago',
-    dataPagamento: '',
-  })
-
-  const resetParceiroForm = () => {
-    setParceiroForm({ nome: '', porcentagem: '' })
-    setEditingParceiroId(null)
+  const resetForm = () => {
+    setFormData({ nome: '', porcentagem: '' })
+    setEditingId(null)
   }
 
-  const resetVendaForm = () => {
-    setVendaForm({
-      parceiroId: '',
-      data: new Date().toISOString().split('T')[0],
-      mensagens: '',
-      vendas: '',
-      valorTotal: '',
-      status: 'pendente',
-      dataPagamento: '',
-    })
-    setEditingVendaId(null)
-  }
-
-  const handleParceiroSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const parceiro = {
-      nome: parceiroForm.nome,
-      porcentagem: parseFloat(parceiroForm.porcentagem) || 0,
+      nome: formData.nome,
+      porcentagem: parseFloat(formData.porcentagem) || 0,
     }
 
-    if (editingParceiroId) {
-      updateParceiro(editingParceiroId, parceiro)
+    if (editingId) {
+      updateParceiro(editingId, parceiro)
     } else {
       addParceiro(parceiro)
     }
     
-    setIsParceiroOpen(false)
-    resetParceiroForm()
+    setIsOpen(false)
+    resetForm()
   }
 
-  const handleVendaSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const venda = {
-      parceiroId: vendaForm.parceiroId,
-      data: vendaForm.data,
-      mensagens: parseInt(vendaForm.mensagens) || 0,
-      vendas: parseInt(vendaForm.vendas) || 0,
-      valorTotal: parseFloat(vendaForm.valorTotal) || 0,
-      status: vendaForm.status,
-      dataPagamento: vendaForm.status === 'pago' ? vendaForm.dataPagamento : undefined,
-    }
-
-    if (editingVendaId) {
-      updateVendaParceiro(editingVendaId, venda)
-    } else {
-      addVendaParceiro(venda)
-    }
-    
-    setIsVendaOpen(false)
-    resetVendaForm()
-  }
-
-  const handleEditParceiro = (p: Parceiro) => {
-    setParceiroForm({
+  const handleEdit = (p: Parceiro) => {
+    setFormData({
       nome: p.nome,
       porcentagem: p.porcentagem.toString(),
     })
-    setEditingParceiroId(p.id)
-    setIsParceiroOpen(true)
+    setEditingId(p.id)
+    setIsOpen(true)
   }
 
-  const handleEditVenda = (v: VendaParceiro) => {
-    setVendaForm({
-      parceiroId: v.parceiroId,
-      data: v.data,
-      mensagens: v.mensagens.toString(),
-      vendas: v.vendas.toString(),
-      valorTotal: v.valorTotal.toString(),
-      status: v.status,
-      dataPagamento: v.dataPagamento || '',
-    })
-    setEditingVendaId(v.id)
-    setIsVendaOpen(true)
-  }
+  // Calcular faturamento total do mes (vendas do trafego)
+  const faturamentoTotal = getTotalVendasTrafego(mesAtual, anoAtual)
+  
+  // Calcular lucro de cada parceiro baseado na porcentagem do faturamento
+  const parceirosComLucro = parceiros.map(p => ({
+    ...p,
+    lucro: faturamentoTotal * (p.porcentagem / 100),
+  }))
+  
+  // Total distribuido aos parceiros
+  const totalDistribuido = parceirosComLucro.reduce((sum, p) => sum + p.lucro, 0)
+  
+  // Lucro restante (parte do negocio)
+  const lucroRestante = faturamentoTotal - totalDistribuido
+  
+  // Total de porcentagem dos parceiros
+  const totalPorcentagem = parceiros.reduce((sum, p) => sum + p.porcentagem, 0)
+  
+  // Porcentagem restante para o negocio
+  const porcentagemNegocio = 100 - totalPorcentagem
 
-  const marcarComoPago = (id: string) => {
-    const venda = vendasParceiros.find(v => v.id === id)
-    if (venda) {
-      updateVendaParceiro(id, {
-        ...venda,
-        status: 'pago',
-        dataPagamento: new Date().toISOString().split('T')[0],
-      })
-    }
-  }
-
-  // Calculos
-  const totalVendido = vendasParceiros.reduce((sum, v) => sum + v.valorTotal, 0)
-  const totalAPagar = vendasParceiros.filter(v => v.status === 'pendente').reduce((sum, v) => sum + v.valorPagar, 0)
-  const totalPago = vendasParceiros.filter(v => v.status === 'pago').reduce((sum, v) => sum + v.valorPagar, 0)
-
-  // Resumo por parceiro
-  const getResumoPorParceiro = () => {
-    return parceiros.map(p => {
-      const vendas = vendasParceiros.filter(v => v.parceiroId === p.id)
-      return {
-        ...p,
-        totalVendido: vendas.reduce((sum, v) => sum + v.valorTotal, 0),
-        totalAPagar: vendas.filter(v => v.status === 'pendente').reduce((sum, v) => sum + v.valorPagar, 0),
-        totalPago: vendas.filter(v => v.status === 'pago').reduce((sum, v) => sum + v.valorPagar, 0),
-        qtdVendas: vendas.reduce((sum, v) => sum + v.vendas, 0),
-      }
-    })
-  }
+  // Dados para grafico de pizza
+  const dadosPizza = [
+    ...parceirosComLucro.map(p => ({ name: p.nome, value: p.lucro })),
+    { name: 'Negocio', value: lucroRestante > 0 ? lucroRestante : 0 },
+  ].filter(d => d.value > 0)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Parceiros</h1>
-          <p className="text-muted-foreground">Gerencie seus parceiros e repasses</p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Parceiros</h1>
+          <p className="text-muted-foreground mt-1">{mesesNomes[mesAtual - 1]} {anoAtual} - Distribuicao de lucro</p>
         </div>
-        <div className="flex gap-2">
-          <Dialog open={isParceiroOpen} onOpenChange={(open) => {
-            setIsParceiroOpen(open)
-            if (!open) resetParceiroForm()
-          }}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Parceiro
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{editingParceiroId ? 'Editar Parceiro' : 'Novo Parceiro'}</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleParceiroSubmit} className="space-y-4">
-                <FieldGroup>
-                  <Field>
-                    <FieldLabel>Nome</FieldLabel>
-                    <Input
-                      placeholder="Nome do parceiro"
-                      value={parceiroForm.nome}
-                      onChange={(e) => setParceiroForm({ ...parceiroForm, nome: e.target.value })}
-                      required
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel>Porcentagem (%)</FieldLabel>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      placeholder="50"
-                      value={parceiroForm.porcentagem}
-                      onChange={(e) => setParceiroForm({ ...parceiroForm, porcentagem: e.target.value })}
-                      required
-                    />
-                  </Field>
-                </FieldGroup>
-                <div className="flex gap-2 justify-end">
-                  <Button type="button" variant="outline" onClick={() => setIsParceiroOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit">
-                    {editingParceiroId ? 'Salvar' : 'Adicionar'}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-
-          <Dialog open={isVendaOpen} onOpenChange={(open) => {
-            setIsVendaOpen(open)
-            if (!open) resetVendaForm()
-          }}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Venda
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>{editingVendaId ? 'Editar Venda' : 'Nova Venda'}</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleVendaSubmit} className="space-y-4">
-                <FieldGroup>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field>
-                      <FieldLabel>Parceiro</FieldLabel>
-                      <Select 
-                        value={vendaForm.parceiroId} 
-                        onValueChange={(v) => setVendaForm({ ...vendaForm, parceiroId: v })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {parceiros.map(p => (
-                            <SelectItem key={p.id} value={p.id}>{p.nome} ({p.porcentagem}%)</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Field>
-                      <FieldLabel>Data</FieldLabel>
-                      <Input
-                        type="date"
-                        value={vendaForm.data}
-                        onChange={(e) => setVendaForm({ ...vendaForm, data: e.target.value })}
-                        required
-                      />
-                    </Field>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <Field>
-                      <FieldLabel>Mensagens</FieldLabel>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        value={vendaForm.mensagens}
-                        onChange={(e) => setVendaForm({ ...vendaForm, mensagens: e.target.value })}
-                        required
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel>Vendas</FieldLabel>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        value={vendaForm.vendas}
-                        onChange={(e) => setVendaForm({ ...vendaForm, vendas: e.target.value })}
-                        required
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel>Valor Total</FieldLabel>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0,00"
-                        value={vendaForm.valorTotal}
-                        onChange={(e) => setVendaForm({ ...vendaForm, valorTotal: e.target.value })}
-                        required
-                      />
-                    </Field>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field>
-                      <FieldLabel>Status</FieldLabel>
-                      <Select 
-                        value={vendaForm.status} 
-                        onValueChange={(v: 'pendente' | 'pago') => setVendaForm({ ...vendaForm, status: v })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pendente">Pendente</SelectItem>
-                          <SelectItem value="pago">Pago</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    {vendaForm.status === 'pago' && (
-                      <Field>
-                        <FieldLabel>Data Pagamento</FieldLabel>
-                        <Input
-                          type="date"
-                          value={vendaForm.dataPagamento}
-                          onChange={(e) => setVendaForm({ ...vendaForm, dataPagamento: e.target.value })}
-                        />
-                      </Field>
-                    )}
-                  </div>
-                </FieldGroup>
-                <div className="flex gap-2 justify-end">
-                  <Button type="button" variant="outline" onClick={() => setIsVendaOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit">
-                    {editingVendaId ? 'Salvar' : 'Adicionar'}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
+        <Dialog open={isOpen} onOpenChange={(open) => {
+          setIsOpen(open)
+          if (!open) resetForm()
+        }}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Parceiro
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editingId ? 'Editar Parceiro' : 'Novo Parceiro'}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <FieldGroup>
+                <Field>
+                  <FieldLabel>Nome do Parceiro</FieldLabel>
+                  <Input
+                    placeholder="Nome do parceiro"
+                    value={formData.nome}
+                    onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                    required
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel>Porcentagem de Participacao (%)</FieldLabel>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    placeholder="Ex: 50"
+                    value={formData.porcentagem}
+                    onChange={(e) => setFormData({ ...formData, porcentagem: e.target.value })}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Porcentagem do faturamento total que sera o lucro deste parceiro
+                  </p>
+                </Field>
+              </FieldGroup>
+              <div className="flex gap-2 justify-end">
+                <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit">
+                  {editingId ? 'Salvar' : 'Adicionar'}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatsCard
-          title="Total Vendido"
-          value={formatCurrency(totalVendido)}
-          subtitle="Pelos parceiros"
+          title="Faturamento Total"
+          value={formatCurrency(faturamentoTotal)}
+          subtitle="Vendas do mes"
           icon={DollarSign}
           variant="default"
         />
         <StatsCard
-          title="A Pagar"
-          value={formatCurrency(totalAPagar)}
-          subtitle="Pendente"
-          icon={Clock}
+          title="Lucro Parceiros"
+          value={formatCurrency(totalDistribuido)}
+          subtitle="Total distribuido"
+          icon={Users}
           variant="warning"
         />
         <StatsCard
-          title="Ja Pago"
-          value={formatCurrency(totalPago)}
-          subtitle="Total"
-          icon={CheckCircle}
+          title="Lucro Negocio"
+          value={formatCurrency(lucroRestante)}
+          subtitle={`${porcentagemNegocio.toFixed(1)}% restante`}
+          icon={DollarSign}
           variant="success"
         />
         <StatsCard
-          title="Parceiros"
+          title="Parceiros Ativos"
           value={parceiros.length.toString()}
-          subtitle="Ativos"
+          subtitle={`${totalPorcentagem}% distribuido`}
           icon={Users}
           variant="default"
         />
       </div>
 
-      {/* Resumo por Parceiro */}
-      {parceiros.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {getResumoPorParceiro().map(p => (
-            <Card key={p.id}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h3 className="font-semibold">{p.nome}</h3>
-                    <p className="text-sm text-muted-foreground">{p.porcentagem}% de comissao</p>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => handleEditParceiro(p)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => deleteParceiro(p.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total vendido:</span>
-                    <span className="font-medium">{formatCurrency(p.totalVendido)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">A pagar:</span>
-                    <span className="font-medium text-warning">{formatCurrency(p.totalAPagar)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Ja pago:</span>
-                    <span className="font-medium text-success">{formatCurrency(p.totalPago)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Vendas:</span>
-                    <span className="font-medium">{p.qtdVendas}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      {/* Aviso de porcentagem */}
+      {totalPorcentagem > 100 && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="p-4">
+            <p className="text-sm text-destructive font-medium">
+              Atencao: A soma das porcentagens ({totalPorcentagem}%) excede 100%. Ajuste as porcentagens dos parceiros.
+            </p>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="vendas">Vendas</TabsTrigger>
-          <TabsTrigger value="parceiros">Parceiros</TabsTrigger>
-        </TabsList>
+      {/* Grafico e Cards */}
+      <div className="grid gap-6 lg:grid-cols-2 xl:gap-8">
+        {/* Distribuicao Visual */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">Distribuicao do Lucro</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {dadosPizza.length > 0 && faturamentoTotal > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <RechartsPie>
+                  <Pie
+                    data={dadosPizza}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={2}
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    labelLine={false}
+                  >
+                    {dadosPizza.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value: number) => formatCurrency(value)}
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                    }}
+                  />
+                </RechartsPie>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                <p>Registre vendas em Trafego Pago para ver a distribuicao</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        <TabsContent value="vendas" className="mt-4">
-          <Card>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Parceiro</TableHead>
-                    <TableHead className="text-right">Mensagens</TableHead>
-                    <TableHead className="text-right">Vendas</TableHead>
-                    <TableHead className="text-right">Valor Total</TableHead>
-                    <TableHead className="text-right">A Pagar</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="w-[120px]">Acoes</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {vendasParceiros.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                        Nenhuma venda registrada
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    vendasParceiros
-                      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
-                      .map((v) => {
-                        const parceiro = parceiros.find(p => p.id === v.parceiroId)
-                        return (
-                          <TableRow key={v.id}>
-                            <TableCell>{new Date(v.data).toLocaleDateString('pt-BR')}</TableCell>
-                            <TableCell className="font-medium">{parceiro?.nome || 'N/A'}</TableCell>
-                            <TableCell className="text-right">{v.mensagens}</TableCell>
-                            <TableCell className="text-right">{v.vendas}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(v.valorTotal)}</TableCell>
-                            <TableCell className="text-right font-semibold">{formatCurrency(v.valorPagar)}</TableCell>
-                            <TableCell>
-                              <Badge variant={v.status === 'pago' ? 'default' : 'secondary'}>
-                                {v.status === 'pago' ? 'Pago' : 'Pendente'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-1">
-                                {v.status === 'pendente' && (
-                                  <Button variant="ghost" size="icon" onClick={() => marcarComoPago(v.id)}>
-                                    <CheckCircle className="h-4 w-4 text-success" />
-                                  </Button>
-                                )}
-                                <Button variant="ghost" size="icon" onClick={() => handleEditVenda(v)}>
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => deleteVendaParceiro(v.id)}>
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* Detalhamento por Parceiro */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">Lucro por Parceiro</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {parceirosComLucro.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                Nenhum parceiro cadastrado
+              </p>
+            ) : (
+              <>
+                {parceirosComLucro.map((p, index) => (
+                  <div key={p.id} className="flex items-center justify-between p-4 bg-accent/30 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                      />
+                      <div>
+                        <p className="font-medium">{p.nome}</p>
+                        <p className="text-sm text-muted-foreground">{p.porcentagem}% do faturamento</p>
+                      </div>
+                    </div>
+                    <p className="font-bold text-lg">{formatCurrency(p.lucro)}</p>
+                  </div>
+                ))}
+                
+                {/* Lucro do Negocio */}
+                <div className="flex items-center justify-between p-4 bg-green-500/10 rounded-lg border border-green-500/20 mt-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 rounded-full bg-green-500" />
+                    <div>
+                      <p className="font-medium">Seu Negocio</p>
+                      <p className="text-sm text-muted-foreground">{porcentagemNegocio.toFixed(1)}% restante</p>
+                    </div>
+                  </div>
+                  <p className="font-bold text-lg text-green-600">{formatCurrency(lucroRestante)}</p>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-        <TabsContent value="parceiros" className="mt-4">
-          <Card>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead className="text-right">Porcentagem</TableHead>
-                    <TableHead className="w-[100px]">Acoes</TableHead>
+      {/* Tabela de Parceiros */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">Parceiros Cadastrados</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead className="text-right">Porcentagem</TableHead>
+                <TableHead className="text-right">Lucro Calculado</TableHead>
+                <TableHead className="w-[100px]">Acoes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {parceiros.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                    Nenhum parceiro cadastrado
+                  </TableCell>
+                </TableRow>
+              ) : (
+                parceirosComLucro.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium">{p.nome}</TableCell>
+                    <TableCell className="text-right">{p.porcentagem}%</TableCell>
+                    <TableCell className="text-right font-semibold text-primary">
+                      {formatCurrency(p.lucro)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(p)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => deleteParceiro(p.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {parceiros.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
-                        Nenhum parceiro cadastrado
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    parceiros.map((p) => (
-                      <TableRow key={p.id}>
-                        <TableCell className="font-medium">{p.nome}</TableCell>
-                        <TableCell className="text-right">{p.porcentagem}%</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => handleEditParceiro(p)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => deleteParceiro(p.id)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Explicacao */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <PieChart className="h-5 w-5 text-muted-foreground mt-0.5" />
+            <div className="text-sm text-muted-foreground">
+              <p className="font-medium text-foreground mb-1">Como funciona:</p>
+              <p>O lucro de cada parceiro e calculado automaticamente com base na porcentagem definida sobre o faturamento total de vendas do trafego pago. Este valor representa a participacao do parceiro no lucro, nao sendo contabilizado como gasto.</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

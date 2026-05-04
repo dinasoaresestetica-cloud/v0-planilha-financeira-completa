@@ -3,9 +3,20 @@
 import { useData } from '@/lib/data-context'
 import { StatsCard } from './stats-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { DollarSign, TrendingUp, TrendingDown, Users, Megaphone, ShoppingCart } from 'lucide-react'
+import { DollarSign, TrendingUp, TrendingDown, Users, Megaphone, ShoppingCart, UserPlus, UserCheck } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
 import { categoriasGasto } from '@/lib/types'
+import { useState, useEffect } from 'react'
+
+// Tipo para cliente na analise
+interface ClienteAnalise {
+  id: string
+  data: string
+  quantidadeClientes: number
+  quantidadeCompras: number
+  tipo: 'novo' | 'antigo'
+  valorTotal: number
+}
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', {
@@ -14,15 +25,23 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
+// Formatar data sem conversao de timezone (evita erro de -1 dia)
+function formatDate(dateString: string) {
+  const [year, month, day] = dateString.split('-')
+  return `${day}/${month}/${year}`
+}
+
+// Extrair partes da data sem conversao de timezone
+function getDateParts(dateString: string) {
+  const [year, month, day] = dateString.split('-').map(Number)
+  return { year, month, day }
+}
+
 export function DashboardHome() {
   const { 
-    receitas, 
     gastos, 
-    clientes,
     trafego,
-    vendasParceiros,
-    ferramentas,
-    getTotalReceitas, 
+    parceiros,
     getTotalGastos, 
     getTotalTrafego,
     getTotalVendasTrafego,
@@ -32,100 +51,106 @@ export function DashboardHome() {
   const currentMonth = now.getMonth() + 1
   const currentYear = now.getFullYear()
 
+  // Carregar dados de clientes da aba de analise
+  const [clientesAnalise, setClientesAnalise] = useState<ClienteAnalise[]>([])
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('analise-clientes-v2')
+      if (stored) {
+        setClientesAnalise(JSON.parse(stored))
+      }
+    }
+  }, [])
+
+  // Filtrar clientes do mes atual
+  const clientesMesAtual = clientesAnalise.filter(c => {
+    const { year, month } = getDateParts(c.data)
+    return month === currentMonth && year === currentYear
+  })
+
+  // Calculos de clientes
+  const clientesNovos = clientesMesAtual.filter(c => c.tipo === 'novo')
+  const clientesAntigos = clientesMesAtual.filter(c => c.tipo === 'antigo')
+  const totalClientesNovos = clientesNovos.reduce((sum, c) => sum + c.quantidadeClientes, 0)
+  const totalClientesAntigos = clientesAntigos.reduce((sum, c) => sum + c.quantidadeClientes, 0)
+  const totalClientes = totalClientesNovos + totalClientesAntigos
+  const valorClientesNovos = clientesNovos.reduce((sum, c) => sum + c.valorTotal, 0)
+  const valorClientesAntigos = clientesAntigos.reduce((sum, c) => sum + c.valorTotal, 0)
+  const totalVendasClientes = clientesNovos.reduce((sum, c) => sum + c.quantidadeCompras, 0) + 
+    clientesAntigos.reduce((sum, c) => sum + c.quantidadeCompras, 0)
+
   // Calculos automaticos baseados em todos os dados
-  const totalReceitas = getTotalReceitas(currentMonth, currentYear)
   const totalVendasTrafego = getTotalVendasTrafego(currentMonth, currentYear)
   
-  // Vendas dos parceiros do mes
-  const vendasParceirosMes = vendasParceiros.filter(v => {
-    const date = new Date(v.data)
-    return date.getMonth() + 1 === currentMonth && date.getFullYear() === currentYear
-  })
-  const totalVendasParceiros = vendasParceirosMes.reduce((sum, v) => sum + v.valorTotal, 0)
-  const totalRepasseParceiros = vendasParceirosMes.reduce((sum, v) => sum + v.valorPagar, 0)
+  // Faturamento total = Vendas Trafego
+  const faturamentoTotal = totalVendasTrafego
   
-  // Faturamento total = Receitas + Vendas Trafego + Vendas Parceiros (parte que fica)
-  const faturamentoTotal = totalReceitas + totalVendasTrafego + (totalVendasParceiros - totalRepasseParceiros)
-  
-  // Gastos totais incluindo trafego pago e ferramentas
+  // Gastos totais incluindo trafego pago
   const totalGastos = getTotalGastos(currentMonth, currentYear)
   const totalTrafego = getTotalTrafego(currentMonth, currentYear)
-  const totalFerramentas = ferramentas.reduce((sum, f) => sum + f.valor, 0)
-  const gastosTotal = totalGastos + totalTrafego + totalFerramentas + totalRepasseParceiros
+  // Soma total de todos os gastos do mes (gastos operacionais + investimento em trafego)
+  const gastosTotal = totalGastos + totalTrafego
   
-  // Lucro liquido real (faturamento - todos os gastos)
-  const lucroLiquido = faturamentoTotal - gastosTotal
+  // Calculo de lucro dos parceiros (participacao no faturamento)
+  const totalPorcentagemParceiros = parceiros.reduce((sum, p) => sum + p.porcentagem, 0)
+  const lucroParceiros = faturamentoTotal * (totalPorcentagemParceiros / 100)
   
-  // Clientes do mes (novo formato simplificado)
-  const totalContatos = clientes.reduce((sum, c) => sum + c.contatos, 0)
-  const totalFechados = clientes.reduce((sum, c) => sum + c.fechados, 0)
-  const taxaConversaoClientes = totalContatos > 0 ? (totalFechados / totalContatos) * 100 : 0
+  // Lucro liquido real (faturamento - gastos - participacao parceiros)
+  const lucroLiquido = faturamentoTotal - gastosTotal - lucroParceiros
   
   const totalConversas = trafego.filter(t => {
-    const date = new Date(t.data)
-    return date.getMonth() + 1 === currentMonth && date.getFullYear() === currentYear
+    const { year, month } = getDateParts(t.data)
+    return month === currentMonth && year === currentYear
   }).reduce((sum, t) => sum + t.conversas, 0)
   const totalVendasTrafegoCount = trafego.filter(t => {
-    const date = new Date(t.data)
-    return date.getMonth() + 1 === currentMonth && date.getFullYear() === currentYear
+    const { year, month } = getDateParts(t.data)
+    return month === currentMonth && year === currentYear
   }).reduce((sum, t) => sum + t.vendas, 0)
 
-  // Dados para grafico de faturamento por mes (inclui todas as fontes de receita)
+  // Dados para grafico de faturamento por mes
   const getMonthlyData = () => {
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
     return months.map((month, index) => {
       const mes = index + 1
       
-      // Receitas diretas
-      const receitasMes = receitas
-        .filter(r => {
-          const date = new Date(r.data)
-          return date.getMonth() + 1 === mes && date.getFullYear() === currentYear
-        })
-        .reduce((sum, r) => sum + r.valor, 0)
-      
       // Vendas do trafego pago
       const vendasTrafegoMes = trafego
         .filter(t => {
-          const date = new Date(t.data)
-          return date.getMonth() + 1 === mes && date.getFullYear() === currentYear
+          const { year, month } = getDateParts(t.data)
+          return month === mes && year === currentYear
         })
         .reduce((sum, t) => sum + t.faturamento, 0)
       
-      // Vendas dos parceiros (valor liquido)
-      const vendasParcMes = vendasParceiros
-        .filter(v => {
-          const date = new Date(v.data)
-          return date.getMonth() + 1 === mes && date.getFullYear() === currentYear
-        })
-      const totalVendasParcMes = vendasParcMes.reduce((sum, v) => sum + v.valorTotal, 0)
-      const repasseParcMes = vendasParcMes.reduce((sum, v) => sum + v.valorPagar, 0)
+      const faturamentoMes = vendasTrafegoMes
       
-      const faturamentoMes = receitasMes + vendasTrafegoMes + (totalVendasParcMes - repasseParcMes)
-      
-      // Gastos do mes
+      // Gastos do mes (da aba gastos)
       const gastosMes = gastos
         .filter(g => {
-          const date = new Date(g.data)
-          return date.getMonth() + 1 === mes && date.getFullYear() === currentYear
+          const { year, month } = getDateParts(g.data)
+          return month === mes && year === currentYear
         })
         .reduce((sum, g) => sum + g.valor, 0)
       
-      // Investimento em trafego
+      // Investimento em trafego do mes
       const trafegoMes = trafego
         .filter(t => {
-          const date = new Date(t.data)
-          return date.getMonth() + 1 === mes && date.getFullYear() === currentYear
+          const { year, month } = getDateParts(t.data)
+          return month === mes && year === currentYear
         })
         .reduce((sum, t) => sum + t.valorInvestido, 0)
       
-      const gastosTotal = gastosMes + trafegoMes + repasseParcMes
+      // Lucro parceiros do mes
+      const lucroParcMes = faturamentoMes * (totalPorcentagemParceiros / 100)
+      
+      // Total de gastos do mes = gastos operacionais + trafego (apenas gastos reais)
+      const gastosTotalMes = gastosMes + trafegoMes
       
       return {
         name: month,
         faturamento: faturamentoMes,
-        gastos: gastosTotal,
-        lucro: faturamentoMes - gastosTotal,
+        gastos: gastosTotalMes,
+        lucro: faturamentoMes - gastosTotalMes - lucroParcMes,
       }
     })
   }
@@ -133,14 +158,21 @@ export function DashboardHome() {
   // Dados para grafico de gastos por categoria
   const getGastosPorCategoria = () => {
     const gastosMes = gastos.filter(g => {
-      const date = new Date(g.data)
-      return date.getMonth() + 1 === currentMonth && date.getFullYear() === currentYear
+      const { year, month } = getDateParts(g.data)
+      return month === currentMonth && year === currentYear
     })
 
-    return categoriasGasto.map(cat => ({
+    const categoriasDados = categoriasGasto.map(cat => ({
       name: cat.label,
       value: gastosMes.filter(g => g.categoria === cat.value).reduce((sum, g) => sum + g.valor, 0),
-    })).filter(item => item.value > 0)
+    }))
+    
+    // Adicionar investimento em trafego como categoria
+    if (totalTrafego > 0) {
+      categoriasDados.push({ name: 'Trafego Pago', value: totalTrafego })
+    }
+    
+    return categoriasDados.filter(item => item.value > 0)
   }
 
   const monthlyData = getMonthlyData()
@@ -168,7 +200,7 @@ export function DashboardHome() {
         <StatsCard
           title="Gastos Totais"
           value={formatCurrency(gastosTotal)}
-          subtitle="Fixos + Variaveis + Trafego"
+          subtitle="Operacionais + Trafego"
           icon={TrendingDown}
           variant="danger"
         />
@@ -187,11 +219,11 @@ export function DashboardHome() {
           variant="warning"
         />
         <StatsCard
-          title="Clientes"
-          value={totalFechados.toString()}
-          subtitle={`${totalContatos} contatos | ${taxaConversaoClientes.toFixed(1)}% conversao`}
+          title="Lucro Parceiros"
+          value={formatCurrency(lucroParceiros)}
+          subtitle={`${totalPorcentagemParceiros}% do faturamento`}
           icon={Users}
-          variant="default"
+          variant="warning"
         />
         <StatsCard
           title="Taxa Conversao"
@@ -342,7 +374,7 @@ export function DashboardHome() {
                   <div key={t.id} className="flex items-center justify-between p-3 bg-accent/50 rounded-lg">
                     <div>
                       <p className="font-medium text-sm">{t.plataforma}</p>
-                      <p className="text-xs text-muted-foreground">{new Date(t.data).toLocaleDateString('pt-BR')}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(t.data)}</p>
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-sm text-green-600">{formatCurrency(t.faturamento)}</p>
@@ -360,26 +392,94 @@ export function DashboardHome() {
         </Card>
       </div>
 
+      {/* Resumo de Clientes */}
+      {totalClientes > 0 && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card className="border-blue-500/30 bg-blue-500/5">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                  <UserPlus className="h-5 w-5 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Clientes Novos</p>
+                  <p className="text-xl font-bold">{totalClientesNovos}</p>
+                </div>
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                {formatCurrency(valorClientesNovos)} em vendas
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-green-500/30 bg-green-500/5">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                  <UserCheck className="h-5 w-5 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Clientes Antigos</p>
+                  <p className="text-xl font-bold">{totalClientesAntigos}</p>
+                </div>
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                {formatCurrency(valorClientesAntigos)} em vendas
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Total Clientes</p>
+                  <p className="text-xl font-bold">{totalClientes}</p>
+                </div>
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                {totalVendasClientes} vendas realizadas
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                  <DollarSign className="h-5 w-5 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Receita Clientes</p>
+                  <p className="text-xl font-bold">{formatCurrency(valorClientesNovos + valorClientesAntigos)}</p>
+                </div>
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                {totalClientes > 0 ? formatCurrency((valorClientesNovos + valorClientesAntigos) / totalVendasClientes) : 'R$ 0'} ticket medio
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Resumos Adicionais */}
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 xl:gap-8">
-        {/* Resumo Receitas */}
+        {/* Resumo Faturamento */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-semibold">Detalhamento Receitas</CardTitle>
+            <CardTitle className="text-base font-semibold">Detalhamento Faturamento</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between items-center p-2 bg-accent/30 rounded">
-              <span className="text-sm">Receitas Diretas</span>
-              <span className="font-semibold text-sm">{formatCurrency(totalReceitas)}</span>
-            </div>
-            <div className="flex justify-between items-center p-2 bg-accent/30 rounded">
-              <span className="text-sm">Vendas Trafego</span>
+              <span className="text-sm">Vendas Trafego Pago</span>
               <span className="font-semibold text-sm">{formatCurrency(totalVendasTrafego)}</span>
             </div>
-            <div className="flex justify-between items-center p-2 bg-accent/30 rounded">
-              <span className="text-sm">Vendas Parceiros (liquido)</span>
-              <span className="font-semibold text-sm">{formatCurrency(totalVendasParceiros - totalRepasseParceiros)}</span>
-            </div>
+            {(valorClientesNovos + valorClientesAntigos) > 0 && (
+              <div className="flex justify-between items-center p-2 bg-accent/30 rounded">
+                <span className="text-sm">Vendas Clientes</span>
+                <span className="font-semibold text-sm">{formatCurrency(valorClientesNovos + valorClientesAntigos)}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center p-3 bg-primary/10 rounded border border-primary/20 mt-2">
               <span className="font-medium">Total Faturamento</span>
               <span className="font-bold text-primary">{formatCurrency(faturamentoTotal)}</span>
@@ -401,14 +501,6 @@ export function DashboardHome() {
               <span className="text-sm">Investimento Trafego</span>
               <span className="font-semibold text-sm">{formatCurrency(totalTrafego)}</span>
             </div>
-            <div className="flex justify-between items-center p-2 bg-accent/30 rounded">
-              <span className="text-sm">Ferramentas/Softwares</span>
-              <span className="font-semibold text-sm">{formatCurrency(totalFerramentas)}</span>
-            </div>
-            <div className="flex justify-between items-center p-2 bg-accent/30 rounded">
-              <span className="text-sm">Repasse Parceiros</span>
-              <span className="font-semibold text-sm">{formatCurrency(totalRepasseParceiros)}</span>
-            </div>
             <div className="flex justify-between items-center p-3 bg-destructive/10 rounded border border-destructive/20 mt-2">
               <span className="font-medium">Total Gastos</span>
               <span className="font-bold text-destructive">{formatCurrency(gastosTotal)}</span>
@@ -429,6 +521,10 @@ export function DashboardHome() {
             <div className="flex justify-between items-center p-2 bg-accent/30 rounded">
               <span className="text-sm">(-) Gastos</span>
               <span className="font-semibold text-sm text-destructive">{formatCurrency(gastosTotal)}</span>
+            </div>
+            <div className="flex justify-between items-center p-2 bg-accent/30 rounded">
+              <span className="text-sm">(-) Lucro Parceiros</span>
+              <span className="font-semibold text-sm text-warning">{formatCurrency(lucroParceiros)}</span>
             </div>
             <div className={`flex justify-between items-center p-4 rounded border mt-4 ${lucroLiquido >= 0 ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
               <span className="font-bold">Lucro Liquido</span>

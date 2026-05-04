@@ -24,6 +24,18 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
+// Formatar data sem conversao de timezone (evita erro de -1 dia)
+function formatDate(dateString: string) {
+  const [year, month, day] = dateString.split('-')
+  return `${day}/${month}/${year}`
+}
+
+// Extrair partes da data sem conversao de timezone
+function getDateParts(dateString: string) {
+  const [year, month, day] = dateString.split('-').map(Number)
+  return { year, month, day }
+}
+
 const COLORS = ['#3b82f6', '#22c55e', '#ef4444', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16']
 
 export function Gastos() {
@@ -90,13 +102,19 @@ export function Gastos() {
       if (activeTab === 'variaveis') return !g.fixo
       return true
     }
-    const date = new Date(g.data)
-    const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    const { year, month } = getDateParts(g.data)
+    const monthYear = `${year}-${String(month).padStart(2, '0')}`
     const matchMonth = monthYear === filterMonth
     if (activeTab === 'fixos') return matchMonth && g.fixo
     if (activeTab === 'variaveis') return matchMonth && !g.fixo
     return matchMonth
-  }).sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+  }).sort((a, b) => {
+    const dateA = getDateParts(a.data)
+    const dateB = getDateParts(b.data)
+    const timeA = new Date(dateA.year, dateA.month - 1, dateA.day).getTime()
+    const timeB = new Date(dateB.year, dateB.month - 1, dateB.day).getTime()
+    return timeB - timeA
+  })
 
   const now = new Date()
   const totalMes = getTotalGastos(now.getMonth() + 1, now.getFullYear())
@@ -380,7 +398,7 @@ export function Gastos() {
               ) : (
                 filteredGastos.map((gasto) => (
                   <TableRow key={gasto.id}>
-                    <TableCell>{new Date(gasto.data).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell>{formatDate(gasto.data)}</TableCell>
                     <TableCell className="font-medium">
                       {categoriasGasto.find(c => c.value === gasto.categoria)?.label || gasto.categoria}
                     </TableCell>

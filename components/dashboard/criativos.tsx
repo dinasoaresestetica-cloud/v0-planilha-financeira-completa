@@ -15,6 +15,18 @@ import { plataformasTrafego, mesesNomes, type Criativo } from '@/lib/types'
 import { StatsCard } from './stats-card'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts'
 
+// Formatar data sem conversao de timezone (evita erro de -1 dia)
+function formatDate(dateString: string) {
+  const [year, month, day] = dateString.split('-')
+  return `${day}/${month}/${year}`
+}
+
+// Extrair partes da data sem conversao de timezone
+function getDateParts(dateString: string) {
+  const [year, month, day] = dateString.split('-').map(Number)
+  return { year, month, day }
+}
+
 export function Criativos() {
   const { criativos, addCriativo, updateCriativo, deleteCriativo, mesAtual, anoAtual } = useData()
   const [isOpen, setIsOpen] = useState(false)
@@ -106,7 +118,13 @@ export function Criativos() {
     }).filter(item => item.pessoas > 0)
   }
 
-  const sortedCriativos = [...criativos].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+  const sortedCriativos = [...criativos].sort((a, b) => {
+    const dateA = getDateParts(a.data)
+    const dateB = getDateParts(b.data)
+    const timeA = new Date(dateA.year, dateA.month - 1, dateA.day).getTime()
+    const timeB = new Date(dateB.year, dateB.month - 1, dateB.day).getTime()
+    return timeB - timeA
+  })
 
   return (
     <div className="space-y-8">
@@ -411,7 +429,7 @@ export function Criativos() {
               ) : (
                 sortedCriativos.map((criativo) => (
                   <TableRow key={criativo.id}>
-                    <TableCell>{new Date(criativo.data).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell>{formatDate(criativo.data)}</TableCell>
                     <TableCell className="font-medium">{criativo.nome}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{criativo.plataforma}</Badge>

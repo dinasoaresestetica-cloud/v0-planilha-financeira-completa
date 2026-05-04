@@ -4,13 +4,11 @@ import { useState } from 'react'
 import { DataProvider } from '@/lib/data-context'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { DashboardHome } from '@/components/dashboard/dashboard-home'
-import { Receitas } from '@/components/dashboard/receitas'
 import { Gastos } from '@/components/dashboard/gastos'
 import { Trafego } from '@/components/dashboard/trafego'
 import { Criativos } from '@/components/dashboard/criativos'
 import { Parceiros } from '@/components/dashboard/parceiros'
-import { Clientes } from '@/components/dashboard/clientes'
-import { Ferramentas } from '@/components/dashboard/ferramentas'
+import { AnaliseClientes } from '@/components/dashboard/analise-clientes'
 import { Historico } from '@/components/dashboard/historico'
 
 export default function Home() {
@@ -20,8 +18,6 @@ export default function Home() {
     switch (activeTab) {
       case 'dashboard':
         return <DashboardHome />
-      case 'receitas':
-        return <Receitas />
       case 'gastos':
         return <Gastos />
       case 'trafego':
@@ -30,10 +26,8 @@ export default function Home() {
         return <Criativos />
       case 'parceiros':
         return <Parceiros />
-      case 'clientes':
-        return <Clientes />
-      case 'ferramentas':
-        return <Ferramentas />
+      case 'analise-clientes':
+        return <AnaliseClientes />
       case 'historico':
         return <Historico />
       default:
