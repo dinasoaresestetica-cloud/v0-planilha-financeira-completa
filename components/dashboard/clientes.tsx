@@ -16,6 +16,12 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 const COLORS = ['#3b82f6', '#22c55e', '#f59e0b']
 
+// Formatar data sem conversao de timezone (evita erro de -1 dia)
+function formatDate(dateString: string) {
+  const [year, month, day] = dateString.split('-')
+  return `${day}/${month}/${year}`
+}
+
 export function Clientes() {
   const { clientes, addCliente, updateCliente, deleteCliente, mesAtual, anoAtual } = useData()
   const [isOpen, setIsOpen] = useState(false)

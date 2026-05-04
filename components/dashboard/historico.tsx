@@ -19,6 +19,12 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
+// Formatar data sem conversao de timezone (evita erro de -1 dia)
+function formatDate(dateString: string) {
+  const [year, month, day] = dateString.split('-')
+  return `${day}/${month}/${year}`
+}
+
 export function Historico() {
   const { historico, mesAtual, anoAtual } = useData()
   const [selectedMonth, setSelectedMonth] = useState<string>('')
@@ -457,7 +463,7 @@ export function Historico() {
                             ) : (
                               selectedHistorico.receitas.map((r) => (
                                 <TableRow key={r.id}>
-                                  <TableCell>{new Date(r.data).toLocaleDateString('pt-BR')}</TableCell>
+                                  <TableCell>{formatDate(r.data)}</TableCell>
                                   <TableCell>{r.cliente}</TableCell>
                                   <TableCell className="text-right font-semibold">{formatCurrency(r.valor)}</TableCell>
                                 </TableRow>
@@ -491,7 +497,7 @@ export function Historico() {
                             ) : (
                               selectedHistorico.gastos.map((g) => (
                                 <TableRow key={g.id}>
-                                  <TableCell>{new Date(g.data).toLocaleDateString('pt-BR')}</TableCell>
+                                  <TableCell>{formatDate(g.data)}</TableCell>
                                   <TableCell>{g.descricao}</TableCell>
                                   <TableCell className="text-right font-semibold text-red-500">{formatCurrency(g.valor)}</TableCell>
                                 </TableRow>
