@@ -90,7 +90,9 @@ export function DashboardHome() {
   // Gastos totais incluindo trafego pago e ferramentas
   const totalGastos = getTotalGastos(currentMonth, currentYear)
   const totalTrafego = getTotalTrafego(currentMonth, currentYear)
+  // Ferramentas sao custos mensais fixos (nao tem data, sao recorrentes)
   const totalFerramentas = ferramentas.reduce((sum, f) => sum + f.valor, 0)
+  // Soma total de todos os gastos do mes
   const gastosTotal = totalGastos + totalTrafego + totalFerramentas
   
   // Calculo de lucro dos parceiros (participacao no faturamento)
@@ -125,7 +127,7 @@ export function DashboardHome() {
       
       const faturamentoMes = vendasTrafegoMes
       
-      // Gastos do mes
+      // Gastos do mes (da aba gastos)
       const gastosMes = gastos
         .filter(g => {
           const { year, month } = getDateParts(g.data)
@@ -133,7 +135,7 @@ export function DashboardHome() {
         })
         .reduce((sum, g) => sum + g.valor, 0)
       
-      // Investimento em trafego
+      // Investimento em trafego do mes
       const trafegoMes = trafego
         .filter(t => {
           const { year, month } = getDateParts(t.data)
@@ -141,10 +143,14 @@ export function DashboardHome() {
         })
         .reduce((sum, t) => sum + t.valorInvestido, 0)
       
+      // Ferramentas sao custos mensais fixos - incluir em todos os meses ate o mes atual
+      const ferramentasMes = mes <= currentMonth ? totalFerramentas : 0
+      
       // Lucro parceiros do mes
       const lucroParcMes = faturamentoMes * (totalPorcentagemParceiros / 100)
       
-      const gastosTotalMes = gastosMes + trafegoMes
+      // Total de gastos do mes = gastos operacionais + trafego + ferramentas
+      const gastosTotalMes = gastosMes + trafegoMes + ferramentasMes
       
       return {
         name: month,
@@ -211,7 +217,7 @@ export function DashboardHome() {
         <StatsCard
           title="Gastos Totais"
           value={formatCurrency(gastosTotal)}
-          subtitle="Fixos + Variaveis + Trafego"
+          subtitle={`Operacionais + Trafego + Ferramentas`}
           icon={TrendingDown}
           variant="danger"
         />
