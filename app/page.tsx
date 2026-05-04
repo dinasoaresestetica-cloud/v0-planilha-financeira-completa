@@ -9,7 +9,6 @@ import { Trafego } from '@/components/dashboard/trafego'
 import { Criativos } from '@/components/dashboard/criativos'
 import { Parceiros } from '@/components/dashboard/parceiros'
 import { AnaliseClientes } from '@/components/dashboard/analise-clientes'
-import { Ferramentas } from '@/components/dashboard/ferramentas'
 import { Historico } from '@/components/dashboard/historico'
 
 export default function Home() {
@@ -29,8 +28,6 @@ export default function Home() {
         return <Parceiros />
       case 'analise-clientes':
         return <AnaliseClientes />
-      case 'ferramentas':
-        return <Ferramentas />
       case 'historico':
         return <Historico />
       default:

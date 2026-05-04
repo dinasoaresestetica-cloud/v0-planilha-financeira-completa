@@ -42,7 +42,6 @@ export function DashboardHome() {
     gastos, 
     trafego,
     parceiros,
-    ferramentas,
     getTotalGastos, 
     getTotalTrafego,
     getTotalVendasTrafego,
@@ -87,13 +86,11 @@ export function DashboardHome() {
   // Faturamento total = Vendas Trafego
   const faturamentoTotal = totalVendasTrafego
   
-  // Gastos totais incluindo trafego pago e ferramentas
+  // Gastos totais incluindo trafego pago
   const totalGastos = getTotalGastos(currentMonth, currentYear)
   const totalTrafego = getTotalTrafego(currentMonth, currentYear)
-  // Ferramentas sao custos mensais fixos (nao tem data, sao recorrentes)
-  const totalFerramentas = ferramentas.reduce((sum, f) => sum + f.valor, 0)
-  // Soma total de todos os gastos do mes
-  const gastosTotal = totalGastos + totalTrafego + totalFerramentas
+  // Soma total de todos os gastos do mes (gastos operacionais + investimento em trafego)
+  const gastosTotal = totalGastos + totalTrafego
   
   // Calculo de lucro dos parceiros (participacao no faturamento)
   const totalPorcentagemParceiros = parceiros.reduce((sum, p) => sum + p.porcentagem, 0)
@@ -143,14 +140,11 @@ export function DashboardHome() {
         })
         .reduce((sum, t) => sum + t.valorInvestido, 0)
       
-      // Ferramentas sao custos mensais fixos - incluir em todos os meses ate o mes atual
-      const ferramentasMes = mes <= currentMonth ? totalFerramentas : 0
-      
       // Lucro parceiros do mes
       const lucroParcMes = faturamentoMes * (totalPorcentagemParceiros / 100)
       
-      // Total de gastos do mes = gastos operacionais + trafego + ferramentas
-      const gastosTotalMes = gastosMes + trafegoMes + ferramentasMes
+      // Total de gastos do mes = gastos operacionais + trafego (apenas gastos reais)
+      const gastosTotalMes = gastosMes + trafegoMes
       
       return {
         name: month,
@@ -161,7 +155,7 @@ export function DashboardHome() {
     })
   }
 
-  // Dados para grafico de gastos por categoria (inclui ferramentas)
+  // Dados para grafico de gastos por categoria
   const getGastosPorCategoria = () => {
     const gastosMes = gastos.filter(g => {
       const { year, month } = getDateParts(g.data)
@@ -172,17 +166,6 @@ export function DashboardHome() {
       name: cat.label,
       value: gastosMes.filter(g => g.categoria === cat.value).reduce((sum, g) => sum + g.valor, 0),
     }))
-    
-    // Adicionar ferramentas como categoria separada se houver
-    if (totalFerramentas > 0) {
-      // Verificar se ja existe categoria ferramentas nos gastos
-      const ferramentasIndex = categoriasDados.findIndex(c => c.name === 'Ferramentas')
-      if (ferramentasIndex >= 0) {
-        categoriasDados[ferramentasIndex].value += totalFerramentas
-      } else {
-        categoriasDados.push({ name: 'Ferramentas/Softwares', value: totalFerramentas })
-      }
-    }
     
     // Adicionar investimento em trafego como categoria
     if (totalTrafego > 0) {
@@ -217,7 +200,7 @@ export function DashboardHome() {
         <StatsCard
           title="Gastos Totais"
           value={formatCurrency(gastosTotal)}
-          subtitle={`Operacionais + Trafego + Ferramentas`}
+          subtitle="Operacionais + Trafego"
           icon={TrendingDown}
           variant="danger"
         />
@@ -517,10 +500,6 @@ export function DashboardHome() {
             <div className="flex justify-between items-center p-2 bg-accent/30 rounded">
               <span className="text-sm">Investimento Trafego</span>
               <span className="font-semibold text-sm">{formatCurrency(totalTrafego)}</span>
-            </div>
-            <div className="flex justify-between items-center p-2 bg-accent/30 rounded">
-              <span className="text-sm">Ferramentas/Softwares</span>
-              <span className="font-semibold text-sm">{formatCurrency(totalFerramentas)}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-destructive/10 rounded border border-destructive/20 mt-2">
               <span className="font-medium">Total Gastos</span>

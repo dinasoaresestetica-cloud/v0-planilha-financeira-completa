@@ -8,7 +8,6 @@ import {
   Megaphone, 
   Users, 
   UserCheck,
-  Wrench,
   Menu,
   X,
   Image,
@@ -29,7 +28,6 @@ const menuItems = [
   { id: 'criativos', label: 'Criativos', icon: Image },
   { id: 'parceiros', label: 'Parceiros', icon: Users },
   { id: 'analise-clientes', label: 'Analise Clientes', icon: UserCheck },
-  { id: 'ferramentas', label: 'Ferramentas', icon: Wrench },
   { id: 'historico', label: 'Historico', icon: History },
 ]
 
