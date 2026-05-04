@@ -14,7 +14,6 @@ import { Plus, Pencil, Trash2, Users, UserPlus, UserCheck, DollarSign, ShoppingC
 import { mesesNomes } from '@/lib/types'
 import { StatsCard } from './stats-card'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
-import { formatDateBR, compareDates } from '@/lib/date-utils'
 
 // Tipo para cliente na analise
 interface ClienteAnalise {

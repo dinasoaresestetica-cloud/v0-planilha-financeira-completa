@@ -16,13 +16,18 @@ import { Plus, Pencil, Trash2, TrendingDown } from 'lucide-react'
 import { categoriasGasto, type Gasto } from '@/lib/types'
 import { StatsCard } from './stats-card'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
-import { formatDateBR, getMonthYearFromDateString, compareDates } from '@/lib/date-utils'
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
   }).format(value)
+}
+
+// Formatar data sem conversao de timezone (evita erro de -1 dia)
+function formatDate(dateString: string) {
+  const [year, month, day] = dateString.split('-')
+  return `${day}/${month}/${year}`
 }
 
 const COLORS = ['#3b82f6', '#22c55e', '#ef4444', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16']
@@ -86,17 +91,18 @@ export function Gastos() {
   }
 
   const filteredGastos = gastos.filter(g => {
-    // Filtro por tipo (fixo/variavel)
-    const matchType = activeTab === 'todos' ? true : 
-      activeTab === 'fixos' ? g.fixo : !g.fixo
-    
-    if (!filterMonth) return matchType
-    
-    // Filtro por mes usando parse seguro de data
-    const { month, year } = getMonthYearFromDateString(g.data)
-    const monthYear = `${year}-${String(month).padStart(2, '0')}`
-    return monthYear === filterMonth && matchType
-  }).sort((a, b) => compareDates(a.data, b.data))
+    if (!filterMonth) {
+      if (activeTab === 'fixos') return g.fixo
+      if (activeTab === 'variaveis') return !g.fixo
+      return true
+    }
+    const date = new Date(g.data)
+    const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    const matchMonth = monthYear === filterMonth
+    if (activeTab === 'fixos') return matchMonth && g.fixo
+    if (activeTab === 'variaveis') return matchMonth && !g.fixo
+    return matchMonth
+  }).sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
 
   const now = new Date()
   const totalMes = getTotalGastos(now.getMonth() + 1, now.getFullYear())
@@ -380,7 +386,7 @@ export function Gastos() {
               ) : (
                 filteredGastos.map((gasto) => (
                   <TableRow key={gasto.id}>
-                    <TableCell>{formatDateBR(gasto.data)}</TableCell>
+                    <TableCell>{formatDate(gasto.data)}</TableCell>
                     <TableCell className="font-medium">
                       {categoriasGasto.find(c => c.value === gasto.categoria)?.label || gasto.categoria}
                     </TableCell>
