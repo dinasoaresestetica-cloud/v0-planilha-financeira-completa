@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { 
   LayoutDashboard, 
   TrendingDown, 
+  TrendingUp,
   Megaphone, 
   Users, 
   UserCheck,
