@@ -24,6 +24,12 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
+// Formatar data sem conversao de timezone (evita erro de -1 dia)
+function formatDate(dateString: string) {
+  const [year, month, day] = dateString.split('-')
+  return `${day}/${month}/${year}`
+}
+
 const COLORS = ['#3b82f6', '#22c55e', '#ef4444', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16']
 
 export function Gastos() {
@@ -380,7 +386,7 @@ export function Gastos() {
               ) : (
                 filteredGastos.map((gasto) => (
                   <TableRow key={gasto.id}>
-                    <TableCell>{new Date(gasto.data).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell>{formatDate(gasto.data)}</TableCell>
                     <TableCell className="font-medium">
                       {categoriasGasto.find(c => c.value === gasto.categoria)?.label || gasto.categoria}
                     </TableCell>

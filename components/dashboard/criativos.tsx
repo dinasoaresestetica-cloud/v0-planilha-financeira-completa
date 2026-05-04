@@ -15,6 +15,12 @@ import { plataformasTrafego, mesesNomes, type Criativo } from '@/lib/types'
 import { StatsCard } from './stats-card'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts'
 
+// Formatar data sem conversao de timezone (evita erro de -1 dia)
+function formatDate(dateString: string) {
+  const [year, month, day] = dateString.split('-')
+  return `${day}/${month}/${year}`
+}
+
 export function Criativos() {
   const { criativos, addCriativo, updateCriativo, deleteCriativo, mesAtual, anoAtual } = useData()
   const [isOpen, setIsOpen] = useState(false)
@@ -411,7 +417,7 @@ export function Criativos() {
               ) : (
                 sortedCriativos.map((criativo) => (
                   <TableRow key={criativo.id}>
-                    <TableCell>{new Date(criativo.data).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell>{formatDate(criativo.data)}</TableCell>
                     <TableCell className="font-medium">{criativo.nome}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{criativo.plataforma}</Badge>

@@ -21,6 +21,12 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
+// Formatar data sem conversao de timezone (evita erro de -1 dia)
+function formatDate(dateString: string) {
+  const [year, month, day] = dateString.split('-')
+  return `${day}/${month}/${year}`
+}
+
 export function Trafego() {
   const { trafego, addTrafego, updateTrafego, deleteTrafego, getTotalTrafego, getTotalVendasTrafego } = useData()
   const [isOpen, setIsOpen] = useState(false)
@@ -400,7 +406,7 @@ export function Trafego() {
               ) : (
                 filteredTrafego.map((t) => (
                   <TableRow key={t.id}>
-                    <TableCell>{new Date(t.data).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell>{formatDate(t.data)}</TableCell>
                     <TableCell className="font-medium">{t.plataforma}</TableCell>
                     <TableCell className="text-right text-warning">{formatCurrency(t.valorInvestido)}</TableCell>
                     <TableCell className="text-right">{t.conversas}</TableCell>

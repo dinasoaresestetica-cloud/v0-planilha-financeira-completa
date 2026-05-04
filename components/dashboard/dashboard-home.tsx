@@ -14,15 +14,18 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
+// Formatar data sem conversao de timezone (evita erro de -1 dia)
+function formatDate(dateString: string) {
+  const [year, month, day] = dateString.split('-')
+  return `${day}/${month}/${year}`
+}
+
 export function DashboardHome() {
   const { 
-    receitas, 
     gastos, 
-    clientes,
     trafego,
-    vendasParceiros,
+    parceiros,
     ferramentas,
-    getTotalReceitas, 
     getTotalGastos, 
     getTotalTrafego,
     getTotalVendasTrafego,
@@ -33,33 +36,23 @@ export function DashboardHome() {
   const currentYear = now.getFullYear()
 
   // Calculos automaticos baseados em todos os dados
-  const totalReceitas = getTotalReceitas(currentMonth, currentYear)
   const totalVendasTrafego = getTotalVendasTrafego(currentMonth, currentYear)
   
-  // Vendas dos parceiros do mes
-  const vendasParceirosMes = vendasParceiros.filter(v => {
-    const date = new Date(v.data)
-    return date.getMonth() + 1 === currentMonth && date.getFullYear() === currentYear
-  })
-  const totalVendasParceiros = vendasParceirosMes.reduce((sum, v) => sum + v.valorTotal, 0)
-  const totalRepasseParceiros = vendasParceirosMes.reduce((sum, v) => sum + v.valorPagar, 0)
-  
-  // Faturamento total = Receitas + Vendas Trafego + Vendas Parceiros (parte que fica)
-  const faturamentoTotal = totalReceitas + totalVendasTrafego + (totalVendasParceiros - totalRepasseParceiros)
+  // Faturamento total = Vendas Trafego
+  const faturamentoTotal = totalVendasTrafego
   
   // Gastos totais incluindo trafego pago e ferramentas
   const totalGastos = getTotalGastos(currentMonth, currentYear)
   const totalTrafego = getTotalTrafego(currentMonth, currentYear)
   const totalFerramentas = ferramentas.reduce((sum, f) => sum + f.valor, 0)
-  const gastosTotal = totalGastos + totalTrafego + totalFerramentas + totalRepasseParceiros
+  const gastosTotal = totalGastos + totalTrafego + totalFerramentas
   
-  // Lucro liquido real (faturamento - todos os gastos)
-  const lucroLiquido = faturamentoTotal - gastosTotal
+  // Calculo de lucro dos parceiros (participacao no faturamento)
+  const totalPorcentagemParceiros = parceiros.reduce((sum, p) => sum + p.porcentagem, 0)
+  const lucroParceiros = faturamentoTotal * (totalPorcentagemParceiros / 100)
   
-  // Clientes do mes (novo formato simplificado)
-  const totalContatos = clientes.reduce((sum, c) => sum + c.contatos, 0)
-  const totalFechados = clientes.reduce((sum, c) => sum + c.fechados, 0)
-  const taxaConversaoClientes = totalContatos > 0 ? (totalFechados / totalContatos) * 100 : 0
+  // Lucro liquido real (faturamento - gastos - participacao parceiros)
+  const lucroLiquido = faturamentoTotal - gastosTotal - lucroParceiros
   
   const totalConversas = trafego.filter(t => {
     const date = new Date(t.data)
@@ -70,19 +63,11 @@ export function DashboardHome() {
     return date.getMonth() + 1 === currentMonth && date.getFullYear() === currentYear
   }).reduce((sum, t) => sum + t.vendas, 0)
 
-  // Dados para grafico de faturamento por mes (inclui todas as fontes de receita)
+  // Dados para grafico de faturamento por mes
   const getMonthlyData = () => {
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
     return months.map((month, index) => {
       const mes = index + 1
-      
-      // Receitas diretas
-      const receitasMes = receitas
-        .filter(r => {
-          const date = new Date(r.data)
-          return date.getMonth() + 1 === mes && date.getFullYear() === currentYear
-        })
-        .reduce((sum, r) => sum + r.valor, 0)
       
       // Vendas do trafego pago
       const vendasTrafegoMes = trafego
@@ -92,16 +77,7 @@ export function DashboardHome() {
         })
         .reduce((sum, t) => sum + t.faturamento, 0)
       
-      // Vendas dos parceiros (valor liquido)
-      const vendasParcMes = vendasParceiros
-        .filter(v => {
-          const date = new Date(v.data)
-          return date.getMonth() + 1 === mes && date.getFullYear() === currentYear
-        })
-      const totalVendasParcMes = vendasParcMes.reduce((sum, v) => sum + v.valorTotal, 0)
-      const repasseParcMes = vendasParcMes.reduce((sum, v) => sum + v.valorPagar, 0)
-      
-      const faturamentoMes = receitasMes + vendasTrafegoMes + (totalVendasParcMes - repasseParcMes)
+      const faturamentoMes = vendasTrafegoMes
       
       // Gastos do mes
       const gastosMes = gastos
@@ -119,28 +95,49 @@ export function DashboardHome() {
         })
         .reduce((sum, t) => sum + t.valorInvestido, 0)
       
-      const gastosTotal = gastosMes + trafegoMes + repasseParcMes
+      // Lucro parceiros do mes
+      const lucroParcMes = faturamentoMes * (totalPorcentagemParceiros / 100)
+      
+      const gastosTotalMes = gastosMes + trafegoMes
       
       return {
         name: month,
         faturamento: faturamentoMes,
-        gastos: gastosTotal,
-        lucro: faturamentoMes - gastosTotal,
+        gastos: gastosTotalMes,
+        lucro: faturamentoMes - gastosTotalMes - lucroParcMes,
       }
     })
   }
 
-  // Dados para grafico de gastos por categoria
+  // Dados para grafico de gastos por categoria (inclui ferramentas)
   const getGastosPorCategoria = () => {
     const gastosMes = gastos.filter(g => {
       const date = new Date(g.data)
       return date.getMonth() + 1 === currentMonth && date.getFullYear() === currentYear
     })
 
-    return categoriasGasto.map(cat => ({
+    const categoriasDados = categoriasGasto.map(cat => ({
       name: cat.label,
       value: gastosMes.filter(g => g.categoria === cat.value).reduce((sum, g) => sum + g.valor, 0),
-    })).filter(item => item.value > 0)
+    }))
+    
+    // Adicionar ferramentas como categoria separada se houver
+    if (totalFerramentas > 0) {
+      // Verificar se ja existe categoria ferramentas nos gastos
+      const ferramentasIndex = categoriasDados.findIndex(c => c.name === 'Ferramentas')
+      if (ferramentasIndex >= 0) {
+        categoriasDados[ferramentasIndex].value += totalFerramentas
+      } else {
+        categoriasDados.push({ name: 'Ferramentas/Softwares', value: totalFerramentas })
+      }
+    }
+    
+    // Adicionar investimento em trafego como categoria
+    if (totalTrafego > 0) {
+      categoriasDados.push({ name: 'Trafego Pago', value: totalTrafego })
+    }
+    
+    return categoriasDados.filter(item => item.value > 0)
   }
 
   const monthlyData = getMonthlyData()
@@ -187,11 +184,11 @@ export function DashboardHome() {
           variant="warning"
         />
         <StatsCard
-          title="Clientes"
-          value={totalFechados.toString()}
-          subtitle={`${totalContatos} contatos | ${taxaConversaoClientes.toFixed(1)}% conversao`}
+          title="Lucro Parceiros"
+          value={formatCurrency(lucroParceiros)}
+          subtitle={`${totalPorcentagemParceiros}% do faturamento`}
           icon={Users}
-          variant="default"
+          variant="warning"
         />
         <StatsCard
           title="Taxa Conversao"
@@ -342,7 +339,7 @@ export function DashboardHome() {
                   <div key={t.id} className="flex items-center justify-between p-3 bg-accent/50 rounded-lg">
                     <div>
                       <p className="font-medium text-sm">{t.plataforma}</p>
-                      <p className="text-xs text-muted-foreground">{new Date(t.data).toLocaleDateString('pt-BR')}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(t.data)}</p>
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-sm text-green-600">{formatCurrency(t.faturamento)}</p>
@@ -362,23 +359,15 @@ export function DashboardHome() {
 
       {/* Resumos Adicionais */}
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 xl:gap-8">
-        {/* Resumo Receitas */}
+        {/* Resumo Faturamento */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-semibold">Detalhamento Receitas</CardTitle>
+            <CardTitle className="text-base font-semibold">Detalhamento Faturamento</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between items-center p-2 bg-accent/30 rounded">
-              <span className="text-sm">Receitas Diretas</span>
-              <span className="font-semibold text-sm">{formatCurrency(totalReceitas)}</span>
-            </div>
-            <div className="flex justify-between items-center p-2 bg-accent/30 rounded">
-              <span className="text-sm">Vendas Trafego</span>
+              <span className="text-sm">Vendas Trafego Pago</span>
               <span className="font-semibold text-sm">{formatCurrency(totalVendasTrafego)}</span>
-            </div>
-            <div className="flex justify-between items-center p-2 bg-accent/30 rounded">
-              <span className="text-sm">Vendas Parceiros (liquido)</span>
-              <span className="font-semibold text-sm">{formatCurrency(totalVendasParceiros - totalRepasseParceiros)}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-primary/10 rounded border border-primary/20 mt-2">
               <span className="font-medium">Total Faturamento</span>
@@ -405,10 +394,6 @@ export function DashboardHome() {
               <span className="text-sm">Ferramentas/Softwares</span>
               <span className="font-semibold text-sm">{formatCurrency(totalFerramentas)}</span>
             </div>
-            <div className="flex justify-between items-center p-2 bg-accent/30 rounded">
-              <span className="text-sm">Repasse Parceiros</span>
-              <span className="font-semibold text-sm">{formatCurrency(totalRepasseParceiros)}</span>
-            </div>
             <div className="flex justify-between items-center p-3 bg-destructive/10 rounded border border-destructive/20 mt-2">
               <span className="font-medium">Total Gastos</span>
               <span className="font-bold text-destructive">{formatCurrency(gastosTotal)}</span>
@@ -429,6 +414,10 @@ export function DashboardHome() {
             <div className="flex justify-between items-center p-2 bg-accent/30 rounded">
               <span className="text-sm">(-) Gastos</span>
               <span className="font-semibold text-sm text-destructive">{formatCurrency(gastosTotal)}</span>
+            </div>
+            <div className="flex justify-between items-center p-2 bg-accent/30 rounded">
+              <span className="text-sm">(-) Lucro Parceiros</span>
+              <span className="font-semibold text-sm text-warning">{formatCurrency(lucroParceiros)}</span>
             </div>
             <div className={`flex justify-between items-center p-4 rounded border mt-4 ${lucroLiquido >= 0 ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
               <span className="font-bold">Lucro Liquido</span>
