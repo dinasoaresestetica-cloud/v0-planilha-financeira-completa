@@ -147,14 +147,10 @@ export function Trafego() {
       }
     })
     
-    return Object.entries(last30Days).map(([dateStr, values]) => {
-      // Usar getDateParts para evitar problema de timezone
-      const { day, month } = getDateParts(dateStr)
-      return {
-        date: `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`,
-        ...values,
-      }
-    })
+    return Object.entries(last30Days).map(([date, values]) => ({
+      date: new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      ...values,
+    }))
   }
 
   return (
