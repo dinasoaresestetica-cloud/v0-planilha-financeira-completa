@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DollarSign, TrendingUp, TrendingDown, Users, Megaphone, ShoppingCart } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
 import { categoriasGasto } from '@/lib/types'
+import { isInMonthYear, formatDateBR } from '@/lib/date-utils'
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', {
@@ -14,11 +15,7 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
-// Formatar data sem conversao de timezone (evita erro de -1 dia)
-function formatDate(dateString: string) {
-  const [year, month, day] = dateString.split('-')
-  return `${day}/${month}/${year}`
-}
+
 
 export function DashboardHome() {
   const { 
@@ -54,51 +51,35 @@ export function DashboardHome() {
   // Lucro liquido real (faturamento - gastos - participacao parceiros)
   const lucroLiquido = faturamentoTotal - gastosTotal - lucroParceiros
   
-  const totalConversas = trafego.filter(t => {
-    const date = new Date(t.data)
-    return date.getMonth() + 1 === currentMonth && date.getFullYear() === currentYear
-  }).reduce((sum, t) => sum + t.conversas, 0)
-  const totalVendasTrafegoCount = trafego.filter(t => {
-    const date = new Date(t.data)
-    return date.getMonth() + 1 === currentMonth && date.getFullYear() === currentYear
-  }).reduce((sum, t) => sum + t.vendas, 0)
+  const trafegoMesAtual = trafego.filter(t => isInMonthYear(t.data, currentMonth, currentYear))
+  const totalConversas = trafegoMesAtual.reduce((sum, t) => sum + t.conversas, 0)
+  const totalVendasTrafegoCount = trafegoMesAtual.reduce((sum, t) => sum + t.vendas, 0)
 
-  // Dados para grafico de faturamento por mes
+  // Dados para grafico de faturamento por mes (usando parse seguro de data)
   const getMonthlyData = () => {
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
     return months.map((month, index) => {
       const mes = index + 1
       
-      // Vendas do trafego pago
-      const vendasTrafegoMes = trafego
-        .filter(t => {
-          const date = new Date(t.data)
-          return date.getMonth() + 1 === mes && date.getFullYear() === currentYear
-        })
-        .reduce((sum, t) => sum + t.faturamento, 0)
+      // Vendas do trafego pago (usando isInMonthYear para parse seguro)
+      const trafegoDoMes = trafego.filter(t => isInMonthYear(t.data, mes, currentYear))
+      const vendasTrafegoMes = trafegoDoMes.reduce((sum, t) => sum + t.faturamento, 0)
+      const investimentoTrafegoMes = trafegoDoMes.reduce((sum, t) => sum + t.valorInvestido, 0)
       
       const faturamentoMes = vendasTrafegoMes
       
-      // Gastos do mes
-      const gastosMes = gastos
-        .filter(g => {
-          const date = new Date(g.data)
-          return date.getMonth() + 1 === mes && date.getFullYear() === currentYear
-        })
-        .reduce((sum, g) => sum + g.valor, 0)
+      // Gastos do mes (usando isInMonthYear para parse seguro)
+      const gastosDoMes = gastos.filter(g => isInMonthYear(g.data, mes, currentYear))
+      const gastosMes = gastosDoMes.reduce((sum, g) => sum + g.valor, 0)
       
-      // Investimento em trafego
-      const trafegoMes = trafego
-        .filter(t => {
-          const date = new Date(t.data)
-          return date.getMonth() + 1 === mes && date.getFullYear() === currentYear
-        })
-        .reduce((sum, t) => sum + t.valorInvestido, 0)
+      // Ferramentas sao gastos mensais fixos
+      const ferramentasMes = mes === currentMonth ? totalFerramentas : 0
       
       // Lucro parceiros do mes
       const lucroParcMes = faturamentoMes * (totalPorcentagemParceiros / 100)
       
-      const gastosTotalMes = gastosMes + trafegoMes
+      // Total de gastos = gastos operacionais + investimento trafego + ferramentas
+      const gastosTotalMes = gastosMes + investimentoTrafegoMes + ferramentasMes
       
       return {
         name: month,
@@ -109,12 +90,10 @@ export function DashboardHome() {
     })
   }
 
-  // Dados para grafico de gastos por categoria (inclui ferramentas)
+  // Dados para grafico de gastos por categoria (inclui ferramentas e trafego)
   const getGastosPorCategoria = () => {
-    const gastosMes = gastos.filter(g => {
-      const date = new Date(g.data)
-      return date.getMonth() + 1 === currentMonth && date.getFullYear() === currentYear
-    })
+    // Usar parse seguro de data
+    const gastosMes = gastos.filter(g => isInMonthYear(g.data, currentMonth, currentYear))
 
     const categoriasDados = categoriasGasto.map(cat => ({
       name: cat.label,
@@ -339,7 +318,7 @@ export function DashboardHome() {
                   <div key={t.id} className="flex items-center justify-between p-3 bg-accent/50 rounded-lg">
                     <div>
                       <p className="font-medium text-sm">{t.plataforma}</p>
-                      <p className="text-xs text-muted-foreground">{formatDate(t.data)}</p>
+                      <p className="text-xs text-muted-foreground">{formatDateBR(t.data)}</p>
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-sm text-green-600">{formatCurrency(t.faturamento)}</p>

@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import type { Receita, Gasto, TrafegoPago, Parceiro, VendaParceiro, ClienteSimples, Ferramenta, Criativo, HistoricoMensal } from './types'
 import { mesesNomes } from './types'
+import { isInMonthYear } from './date-utils'
 
 interface DataContextType {
   receitas: Receita[]
@@ -289,14 +290,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setCriativos(prev => prev.filter(c => c.id !== id))
   }
 
+  // Filtra itens por mes e ano usando parse seguro de data (sem timezone)
   const filterByDate = <T extends { data: string }>(items: T[], mes?: number, ano?: number) => {
-    if (!mes && !ano) return items
-    return items.filter(item => {
-      const date = new Date(item.data)
-      const matchMonth = mes ? date.getMonth() + 1 === mes : true
-      const matchYear = ano ? date.getFullYear() === ano : true
-      return matchMonth && matchYear
-    })
+    if (!mes || !ano) return items
+    return items.filter(item => isInMonthYear(item.data, mes, ano))
   }
 
   const getTotalReceitas = (mes?: number, ano?: number) => {

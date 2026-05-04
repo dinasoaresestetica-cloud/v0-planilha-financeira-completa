@@ -13,18 +13,13 @@ import { Plus, Pencil, Trash2, Megaphone, MessageCircle, ShoppingCart, TrendingU
 import { plataformasTrafego, type TrafegoPago } from '@/lib/types'
 import { StatsCard } from './stats-card'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts'
+import { formatDateBR, getMonthYearFromDateString, compareDates } from '@/lib/date-utils'
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
   }).format(value)
-}
-
-// Formatar data sem conversao de timezone (evita erro de -1 dia)
-function formatDate(dateString: string) {
-  const [year, month, day] = dateString.split('-')
-  return `${day}/${month}/${year}`
 }
 
 export function Trafego() {
@@ -90,10 +85,11 @@ export function Trafego() {
 
   const filteredTrafego = trafego.filter(t => {
     if (!filterMonth) return true
-    const date = new Date(t.data)
-    const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    // Usar parse seguro de data
+    const { month, year } = getMonthYearFromDateString(t.data)
+    const monthYear = `${year}-${String(month).padStart(2, '0')}`
     return monthYear === filterMonth
-  }).sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+  }).sort((a, b) => compareDates(a.data, b.data))
 
   const now = new Date()
   const totalInvestido = getTotalTrafego(now.getMonth() + 1, now.getFullYear())
@@ -116,7 +112,7 @@ export function Trafego() {
     }).filter(item => item.investido > 0 || item.faturamento > 0)
   }
 
-  // Dados para grafico de evolucao
+  // Dados para grafico de evolucao (usando parse seguro)
   const getEvolucao = () => {
     const last30Days: { [key: string]: { investido: number; faturamento: number } } = {}
     const today = new Date()
@@ -136,7 +132,7 @@ export function Trafego() {
     })
     
     return Object.entries(last30Days).map(([date, values]) => ({
-      date: new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      date: formatDateBR(date).substring(0, 5), // DD/MM
       ...values,
     }))
   }
@@ -406,7 +402,7 @@ export function Trafego() {
               ) : (
                 filteredTrafego.map((t) => (
                   <TableRow key={t.id}>
-                    <TableCell>{formatDate(t.data)}</TableCell>
+                    <TableCell>{formatDateBR(t.data)}</TableCell>
                     <TableCell className="font-medium">{t.plataforma}</TableCell>
                     <TableCell className="text-right text-warning">{formatCurrency(t.valorInvestido)}</TableCell>
                     <TableCell className="text-right">{t.conversas}</TableCell>
