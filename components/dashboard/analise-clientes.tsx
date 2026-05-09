@@ -10,16 +10,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Pencil, Trash2, Users, UserPlus, UserCheck, DollarSign, ShoppingCart } from 'lucide-react'
+import { Plus, Pencil, Trash2, UserPlus, UserCheck, DollarSign, ShoppingCart } from 'lucide-react'
 import { mesesNomes } from '@/lib/types'
 import { StatsCard } from './stats-card'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 
-// Tipo para cliente na analise
+// Tipo para registro de vendas por tipo de cliente
 interface ClienteAnalise {
   id: string
   data: string
-  quantidadeClientes: number
   quantidadeCompras: number
   tipo: 'novo' | 'antigo'
   valorTotal: number
@@ -73,7 +72,6 @@ export function AnaliseClientes() {
 
   const [formData, setFormData] = useState({
     data: new Date().toISOString().split('T')[0],
-    quantidadeClientes: '',
     quantidadeCompras: '',
     tipo: 'novo' as 'novo' | 'antigo',
     valorTotal: '',
@@ -82,7 +80,6 @@ export function AnaliseClientes() {
   const resetForm = () => {
     setFormData({
       data: new Date().toISOString().split('T')[0],
-      quantidadeClientes: '',
       quantidadeCompras: '',
       tipo: 'novo',
       valorTotal: '',
@@ -95,7 +92,6 @@ export function AnaliseClientes() {
     const cliente: ClienteAnalise = {
       id: editingId || Math.random().toString(36).substring(2, 15),
       data: formData.data,
-      quantidadeClientes: parseInt(formData.quantidadeClientes) || 0,
       quantidadeCompras: parseInt(formData.quantidadeCompras) || 0,
       tipo: formData.tipo,
       valorTotal: parseFloat(formData.valorTotal) || 0,
@@ -114,7 +110,6 @@ export function AnaliseClientes() {
   const handleEdit = (cliente: ClienteAnalise) => {
     setFormData({
       data: cliente.data,
-      quantidadeClientes: cliente.quantidadeClientes.toString(),
       quantidadeCompras: cliente.quantidadeCompras.toString(),
       tipo: cliente.tipo,
       valorTotal: cliente.valorTotal.toString(),
@@ -137,10 +132,6 @@ export function AnaliseClientes() {
   const clientesNovos = clientesMesAtual.filter(c => c.tipo === 'novo')
   const clientesAntigos = clientesMesAtual.filter(c => c.tipo === 'antigo')
   
-  const totalClientes = clientesMesAtual.reduce((sum, c) => sum + c.quantidadeClientes, 0)
-  const qtdNovos = clientesNovos.reduce((sum, c) => sum + c.quantidadeClientes, 0)
-  const qtdAntigos = clientesAntigos.reduce((sum, c) => sum + c.quantidadeClientes, 0)
-  
   const vendasNovos = clientesNovos.reduce((sum, c) => sum + c.quantidadeCompras, 0)
   const vendasAntigos = clientesAntigos.reduce((sum, c) => sum + c.quantidadeCompras, 0)
   const totalVendas = vendasNovos + vendasAntigos
@@ -155,8 +146,8 @@ export function AnaliseClientes() {
 
   // Dados para graficos
   const dadosPorTipo = [
-    { name: 'Novos', clientes: qtdNovos, vendas: vendasNovos, valor: valorNovos },
-    { name: 'Antigos', clientes: qtdAntigos, vendas: vendasAntigos, valor: valorAntigos },
+    { name: 'Novos', vendas: vendasNovos, valor: valorNovos },
+    { name: 'Antigos', vendas: vendasAntigos, valor: valorAntigos },
   ]
 
   const dadosPizza = [
@@ -225,17 +216,6 @@ export function AnaliseClientes() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Field>
-                    <FieldLabel>Qtd de Clientes</FieldLabel>
-                    <Input
-                      type="number"
-                      min="1"
-                      placeholder="1"
-                      value={formData.quantidadeClientes}
-                      onChange={(e) => setFormData({ ...formData, quantidadeClientes: e.target.value })}
-                      required
-                    />
-                  </Field>
-                  <Field>
                     <FieldLabel>Qtd de Compras</FieldLabel>
                     <Input
                       type="number"
@@ -246,18 +226,18 @@ export function AnaliseClientes() {
                       required
                     />
                   </Field>
+                  <Field>
+                    <FieldLabel>Valor Total (Pix)</FieldLabel>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0,00"
+                      value={formData.valorTotal}
+                      onChange={(e) => setFormData({ ...formData, valorTotal: e.target.value })}
+                      required
+                    />
+                  </Field>
                 </div>
-                <Field>
-                  <FieldLabel>Valor Total (Pix)</FieldLabel>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="0,00"
-                    value={formData.valorTotal}
-                    onChange={(e) => setFormData({ ...formData, valorTotal: e.target.value })}
-                    required
-                  />
-                </Field>
               </FieldGroup>
               <div className="flex gap-2 justify-end">
                 <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
@@ -275,30 +255,30 @@ export function AnaliseClientes() {
       {/* Stats principais */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatsCard
-          title="Total de Clientes"
-          value={totalClientes.toString()}
-          subtitle={`${qtdNovos} novos | ${qtdAntigos} antigos`}
-          icon={Users}
+          title="Vendas Novos"
+          value={vendasNovos.toString()}
+          subtitle={formatCurrency(valorNovos)}
+          icon={UserPlus}
           variant="default"
         />
         <StatsCard
-          title="Total de Vendas"
-          value={totalVendas.toString()}
-          subtitle={`${vendasNovos} novos | ${vendasAntigos} antigos`}
-          icon={ShoppingCart}
+          title="Vendas Antigos"
+          value={vendasAntigos.toString()}
+          subtitle={formatCurrency(valorAntigos)}
+          icon={UserCheck}
           variant="success"
         />
         <StatsCard
-          title="Valor Total"
-          value={formatCurrency(valorTotal)}
-          subtitle="Receita total do periodo"
-          icon={DollarSign}
+          title="Total Vendas"
+          value={totalVendas.toString()}
+          subtitle={formatCurrency(valorTotal)}
+          icon={ShoppingCart}
           variant="default"
         />
         <StatsCard
           title="Ticket Medio"
           value={formatCurrency(ticketMedioGeral)}
-          subtitle="Valor medio por venda"
+          subtitle="Por venda"
           icon={DollarSign}
           variant="success"
         />
@@ -314,12 +294,8 @@ export function AnaliseClientes() {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium text-muted-foreground">Clientes Novos</p>
-                <p className="text-2xl font-bold text-foreground">{qtdNovos}</p>
+                <p className="text-2xl font-bold text-foreground">{vendasNovos} vendas</p>
                 <div className="grid grid-cols-2 gap-4 mt-3 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Vendas</p>
-                    <p className="font-semibold">{vendasNovos}</p>
-                  </div>
                   <div>
                     <p className="text-muted-foreground">Valor Total</p>
                     <p className="font-semibold text-blue-600">{formatCurrency(valorNovos)}</p>
@@ -327,10 +303,6 @@ export function AnaliseClientes() {
                   <div>
                     <p className="text-muted-foreground">Ticket Medio</p>
                     <p className="font-semibold">{formatCurrency(ticketMedioNovos)}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">% do Total</p>
-                    <p className="font-semibold">{valorTotal > 0 ? ((valorNovos / valorTotal) * 100).toFixed(1) : 0}%</p>
                   </div>
                 </div>
               </div>
@@ -346,12 +318,8 @@ export function AnaliseClientes() {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium text-muted-foreground">Clientes Antigos</p>
-                <p className="text-2xl font-bold text-foreground">{qtdAntigos}</p>
+                <p className="text-2xl font-bold text-foreground">{vendasAntigos} vendas</p>
                 <div className="grid grid-cols-2 gap-4 mt-3 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Vendas</p>
-                    <p className="font-semibold">{vendasAntigos}</p>
-                  </div>
                   <div>
                     <p className="text-muted-foreground">Valor Total</p>
                     <p className="font-semibold text-green-600">{formatCurrency(valorAntigos)}</p>
@@ -359,10 +327,6 @@ export function AnaliseClientes() {
                   <div>
                     <p className="text-muted-foreground">Ticket Medio</p>
                     <p className="font-semibold">{formatCurrency(ticketMedioAntigos)}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">% do Total</p>
-                    <p className="font-semibold">{valorTotal > 0 ? ((valorAntigos / valorTotal) * 100).toFixed(1) : 0}%</p>
                   </div>
                 </div>
               </div>
@@ -392,11 +356,11 @@ export function AnaliseClientes() {
                     }}
                     formatter={(value: number, name: string) => [
                       name === 'valor' ? formatCurrency(value) : value,
-                      name === 'clientes' ? 'Clientes' : name === 'vendas' ? 'Vendas' : 'Valor'
+                      name === 'vendas' ? 'Vendas' : 'Valor'
                     ]}
                   />
-                  <Bar dataKey="clientes" name="clientes" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="vendas" name="vendas" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="valor" name="valor" fill="#22c55e" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -460,7 +424,6 @@ export function AnaliseClientes() {
               <TableRow>
                 <TableHead>Data</TableHead>
                 <TableHead>Tipo</TableHead>
-                <TableHead className="text-right">Qtd Clientes</TableHead>
                 <TableHead className="text-right">Qtd Compras</TableHead>
                 <TableHead className="text-right">Valor Total</TableHead>
                 <TableHead className="w-[100px]">Acoes</TableHead>
@@ -469,8 +432,8 @@ export function AnaliseClientes() {
             <TableBody>
               {sortedClientes.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    Nenhum cliente registrado neste mes
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    Nenhum registro neste mes
                   </TableCell>
                 </TableRow>
               ) : (
@@ -483,7 +446,6 @@ export function AnaliseClientes() {
                         {cliente.tipo === 'novo' ? 'Novo' : 'Antigo'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">{cliente.quantidadeClientes}</TableCell>
                     <TableCell className="text-right">{cliente.quantidadeCompras}</TableCell>
                     <TableCell className="text-right font-semibold text-green-600">{formatCurrency(cliente.valorTotal)}</TableCell>
                     <TableCell>

@@ -39,7 +39,7 @@ function getDateParts(dateString: string) {
 const COLORS = ['#3b82f6', '#22c55e', '#ef4444', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16']
 
 export function Gastos() {
-  const { gastos, ferramentas, addGasto, updateGasto, deleteGasto, getTotalGastos } = useData()
+  const { gastos, addGasto, updateGasto, deleteGasto, getTotalGastos } = useData()
   const [isOpen, setIsOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [filterMonth, setFilterMonth] = useState<string>('')
@@ -120,7 +120,6 @@ export function Gastos() {
   const totalMes = getTotalGastos(now.getMonth() + 1, now.getFullYear())
   const gastosFixos = gastos.filter(g => g.fixo).reduce((sum, g) => sum + g.valor, 0)
   const gastosVariaveis = gastos.filter(g => !g.fixo).reduce((sum, g) => sum + g.valor, 0)
-  const totalFerramentas = ferramentas.reduce((sum, f) => sum + f.valor, 0)
 
   // Dados para grafico por categoria
   const getGastosPorCategoria = () => {
@@ -235,7 +234,7 @@ export function Gastos() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <StatsCard
           title="Total do Mes"
           value={formatCurrency(totalMes)}
@@ -251,13 +250,6 @@ export function Gastos() {
         <StatsCard
           title="Gastos Variaveis"
           value={formatCurrency(gastosVariaveis)}
-          icon={TrendingDown}
-          variant="default"
-        />
-        <StatsCard
-          title="Ferramentas"
-          value={formatCurrency(totalFerramentas)}
-          subtitle="mensal"
           icon={TrendingDown}
           variant="default"
         />
