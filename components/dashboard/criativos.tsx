@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Pencil, Trash2, Image, Users, ShoppingCart, TrendingUp, TrendingDown, Award } from 'lucide-react'
+import { Plus, Pencil, Trash2, Image, Users, ShoppingCart, TrendingUp, TrendingDown, Award, PlusCircle } from 'lucide-react'
 import { plataformasTrafego, mesesNomes, type Criativo } from '@/lib/types'
 import { StatsCard } from './stats-card'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts'
@@ -31,10 +31,15 @@ export function Criativos() {
   const { criativos, addCriativo, updateCriativo, deleteCriativo, mesAtual, anoAtual } = useData()
   const [isOpen, setIsOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [isNewCriativo, setIsNewCriativo] = useState(true)
+
+  // Lista de nomes de criativos unicos (para selecionar um existente)
+  const criativosUnicos = [...new Set(criativos.map(c => c.nome))]
 
   const [formData, setFormData] = useState({
     data: new Date().toISOString().split('T')[0],
     nome: '',
+    nomeSelecionado: '',
     plataforma: '',
     pessoasAlcancadas: '',
     conversoes: '',
@@ -44,19 +49,34 @@ export function Criativos() {
     setFormData({
       data: new Date().toISOString().split('T')[0],
       nome: '',
+      nomeSelecionado: '',
       plataforma: '',
       pessoasAlcancadas: '',
       conversoes: '',
     })
     setEditingId(null)
+    setIsNewCriativo(true)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Se estiver continuando um criativo existente, usar o nome selecionado
+    let nomeDosCriativos = isNewCriativo ? formData.nome : formData.nomeSelecionado
+    
+    // Se selecionou um existente, pegar a plataforma dele
+    let plataforma = formData.plataforma
+    if (!isNewCriativo && formData.nomeSelecionado) {
+      const criativoExistente = criativos.find(c => c.nome === formData.nomeSelecionado)
+      if (criativoExistente && !plataforma) {
+        plataforma = criativoExistente.plataforma
+      }
+    }
+
     const criativo = {
       data: formData.data,
-      nome: formData.nome,
-      plataforma: formData.plataforma,
+      nome: nomeDosCriativos,
+      plataforma: plataforma,
       pessoasAlcancadas: parseInt(formData.pessoasAlcancadas) || 0,
       conversoes: parseInt(formData.conversoes) || 0,
     }
@@ -75,13 +95,32 @@ export function Criativos() {
     setFormData({
       data: criativo.data,
       nome: criativo.nome,
+      nomeSelecionado: criativo.nome,
       plataforma: criativo.plataforma,
       pessoasAlcancadas: criativo.pessoasAlcancadas.toString(),
       conversoes: criativo.conversoes.toString(),
     })
     setEditingId(criativo.id)
+    setIsNewCriativo(true)
     setIsOpen(true)
   }
+
+  // Agrupar criativos por nome para ver totais
+  const criativosAgrupados = criativosUnicos.map(nome => {
+    const registros = criativos.filter(c => c.nome === nome)
+    const totalPessoas = registros.reduce((sum, c) => sum + c.pessoasAlcancadas, 0)
+    const totalConversoes = registros.reduce((sum, c) => sum + c.conversoes, 0)
+    const taxaConversao = totalPessoas > 0 ? (totalConversoes / totalPessoas) * 100 : 0
+    const plataforma = registros[0]?.plataforma || ''
+    return {
+      nome,
+      plataforma,
+      registros: registros.length,
+      totalPessoas,
+      totalConversoes,
+      taxaConversao,
+    }
+  }).sort((a, b) => b.taxaConversao - a.taxaConversao)
 
   // Calculos do mes
   const totalPessoas = criativos.reduce((sum, c) => sum + c.pessoasAlcancadas, 0)
@@ -89,16 +128,15 @@ export function Criativos() {
   const taxaConversaoGeral = totalPessoas > 0 ? (totalConversoes / totalPessoas) * 100 : 0
 
   // Melhor e pior criativo
-  const criativosOrdenados = [...criativos].sort((a, b) => b.taxaConversao - a.taxaConversao)
-  const melhorCriativo = criativosOrdenados[0]
-  const piorCriativo = criativosOrdenados[criativosOrdenados.length - 1]
+  const melhorCriativo = criativosAgrupados[0]
+  const piorCriativo = criativosAgrupados[criativosAgrupados.length - 1]
 
-  // Dados para grafico de barras
+  // Dados para grafico de barras (por criativo agrupado)
   const getChartData = () => {
-    return criativos.map(c => ({
-      name: c.nome.length > 15 ? c.nome.substring(0, 15) + '...' : c.nome,
-      pessoas: c.pessoasAlcancadas,
-      conversoes: c.conversoes,
+    return criativosAgrupados.map(c => ({
+      name: c.nome.length > 12 ? c.nome.substring(0, 12) + '...' : c.nome,
+      pessoas: c.totalPessoas,
+      conversoes: c.totalConversoes,
       taxa: c.taxaConversao,
     }))
   }
@@ -132,7 +170,7 @@ export function Criativos() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Criativos</h1>
-          <p className="text-muted-foreground mt-1">{mesesNomes[mesAtual - 1]} {anoAtual} - Analise de desempenho dos criativos</p>
+          <p className="text-muted-foreground mt-1">{mesesNomes[mesAtual - 1]} {anoAtual} - Analise de desempenho</p>
         </div>
         <Dialog open={isOpen} onOpenChange={(open) => {
           setIsOpen(open)
@@ -141,51 +179,100 @@ export function Criativos() {
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
-              Novo Criativo
+              Registrar Dados
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>{editingId ? 'Editar Criativo' : 'Novo Criativo'}</DialogTitle>
+              <DialogTitle>{editingId ? 'Editar Registro' : 'Registrar Dados do Criativo'}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <FieldGroup>
-                <Field>
-                  <FieldLabel>Nome do Criativo</FieldLabel>
-                  <Input
-                    placeholder="Ex: Criativo Video A, Story Promocao..."
-                    value={formData.nome}
-                    onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                    required
-                  />
-                </Field>
-                <div className="grid grid-cols-2 gap-4">
+                {/* Opcao: Novo ou Existente */}
+                {!editingId && criativosUnicos.length > 0 && (
+                  <div className="flex gap-2 mb-2">
+                    <Button
+                      type="button"
+                      variant={isNewCriativo ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setIsNewCriativo(true)}
+                    >
+                      <PlusCircle className="h-4 w-4 mr-1" />
+                      Novo Criativo
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={!isNewCriativo ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setIsNewCriativo(false)}
+                    >
+                      <Image className="h-4 w-4 mr-1" />
+                      Continuar Existente
+                    </Button>
+                  </div>
+                )}
+
+                {isNewCriativo ? (
+                  <>
+                    <Field>
+                      <FieldLabel>Nome do Criativo</FieldLabel>
+                      <Input
+                        placeholder="Ex: Video A, Story Promo..."
+                        value={formData.nome}
+                        onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                        required
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel>Plataforma</FieldLabel>
+                      <Select 
+                        value={formData.plataforma} 
+                        onValueChange={(v) => setFormData({ ...formData, plataforma: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {plataformasTrafego.map(plataforma => (
+                            <SelectItem key={plataforma} value={plataforma}>{plataforma}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  </>
+                ) : (
                   <Field>
-                    <FieldLabel>Data</FieldLabel>
-                    <Input
-                      type="date"
-                      value={formData.data}
-                      onChange={(e) => setFormData({ ...formData, data: e.target.value })}
-                      required
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel>Plataforma</FieldLabel>
+                    <FieldLabel>Selecionar Criativo</FieldLabel>
                     <Select 
-                      value={formData.plataforma} 
-                      onValueChange={(v) => setFormData({ ...formData, plataforma: v })}
+                      value={formData.nomeSelecionado} 
+                      onValueChange={(v) => setFormData({ ...formData, nomeSelecionado: v })}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione" />
+                        <SelectValue placeholder="Selecione o criativo" />
                       </SelectTrigger>
                       <SelectContent>
-                        {plataformasTrafego.map(plataforma => (
-                          <SelectItem key={plataforma} value={plataforma}>{plataforma}</SelectItem>
-                        ))}
+                        {criativosUnicos.map(nome => {
+                          const c = criativos.find(cr => cr.nome === nome)
+                          return (
+                            <SelectItem key={nome} value={nome}>
+                              {nome} ({c?.plataforma})
+                            </SelectItem>
+                          )
+                        })}
                       </SelectContent>
                     </Select>
                   </Field>
-                </div>
+                )}
+
+                <Field>
+                  <FieldLabel>Data</FieldLabel>
+                  <Input
+                    type="date"
+                    value={formData.data}
+                    onChange={(e) => setFormData({ ...formData, data: e.target.value })}
+                    required
+                  />
+                </Field>
                 <div className="grid grid-cols-2 gap-4">
                   <Field>
                     <FieldLabel>Pessoas Alcancadas</FieldLabel>
@@ -216,7 +303,7 @@ export function Criativos() {
                   Cancelar
                 </Button>
                 <Button type="submit">
-                  {editingId ? 'Salvar' : 'Adicionar'}
+                  {editingId ? 'Salvar' : 'Registrar'}
                 </Button>
               </div>
             </form>
@@ -248,16 +335,16 @@ export function Criativos() {
           variant={taxaConversaoGeral >= 2 ? 'success' : taxaConversaoGeral >= 1 ? 'warning' : 'danger'}
         />
         <StatsCard
-          title="Criativos Ativos"
-          value={criativos.length.toString()}
-          subtitle="Registrados no mes"
+          title="Criativos"
+          value={criativosUnicos.length.toString()}
+          subtitle={`${criativos.length} registros`}
           icon={Image}
           variant="default"
         />
       </div>
 
       {/* Destaque Melhor e Pior */}
-      {criativos.length >= 2 && (
+      {criativosAgrupados.length >= 2 && (
         <div className="grid gap-4 md:grid-cols-2">
           <Card className="border-green-500/50 bg-green-500/5">
             <CardContent className="p-6">
@@ -269,7 +356,7 @@ export function Criativos() {
                   <p className="text-sm font-medium text-muted-foreground">Melhor Criativo</p>
                   <p className="text-lg font-bold text-foreground">{melhorCriativo?.nome}</p>
                   <div className="flex gap-4 mt-2 text-sm">
-                    <span className="text-muted-foreground">{melhorCriativo?.pessoasAlcancadas.toLocaleString('pt-BR')} pessoas</span>
+                    <span className="text-muted-foreground">{melhorCriativo?.totalPessoas.toLocaleString('pt-BR')} pessoas</span>
                     <span className="text-green-600 font-semibold">{melhorCriativo?.taxaConversao.toFixed(2)}% conversao</span>
                   </div>
                 </div>
@@ -287,7 +374,7 @@ export function Criativos() {
                   <p className="text-sm font-medium text-muted-foreground">Criativo a Melhorar</p>
                   <p className="text-lg font-bold text-foreground">{piorCriativo?.nome}</p>
                   <div className="flex gap-4 mt-2 text-sm">
-                    <span className="text-muted-foreground">{piorCriativo?.pessoasAlcancadas.toLocaleString('pt-BR')} pessoas</span>
+                    <span className="text-muted-foreground">{piorCriativo?.totalPessoas.toLocaleString('pt-BR')} pessoas</span>
                     <span className="text-red-500 font-semibold">{piorCriativo?.taxaConversao.toFixed(2)}% conversao</span>
                   </div>
                 </div>
@@ -295,6 +382,50 @@ export function Criativos() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Resumo por Criativo */}
+      {criativosAgrupados.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">Resumo por Criativo</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Criativo</TableHead>
+                  <TableHead>Plataforma</TableHead>
+                  <TableHead className="text-right">Registros</TableHead>
+                  <TableHead className="text-right">Alcance Total</TableHead>
+                  <TableHead className="text-right">Conversoes</TableHead>
+                  <TableHead className="text-center">Taxa</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {criativosAgrupados.map((c) => (
+                  <TableRow key={c.nome}>
+                    <TableCell className="font-medium">{c.nome}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{c.plataforma}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">{c.registros}</TableCell>
+                    <TableCell className="text-right">{c.totalPessoas.toLocaleString('pt-BR')}</TableCell>
+                    <TableCell className="text-right font-semibold text-green-600">{c.totalConversoes}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge 
+                        variant={c.taxaConversao >= 2 ? 'default' : 'destructive'}
+                        className={c.taxaConversao >= 2 ? 'bg-green-500 hover:bg-green-500/80' : ''}
+                      >
+                        {c.taxaConversao.toFixed(2)}%
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
 
       {/* Charts */}
@@ -370,7 +501,7 @@ export function Criativos() {
           <CardTitle className="text-base font-semibold">Taxa de Conversao por Criativo</CardTitle>
         </CardHeader>
         <CardContent>
-          {criativos.length > 0 ? (
+          {criativosAgrupados.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={getChartData()}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
@@ -401,17 +532,17 @@ export function Criativos() {
         </CardContent>
       </Card>
 
-      {/* Table */}
+      {/* Table - Todos os Registros */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base font-semibold">Todos os Criativos</CardTitle>
+          <CardTitle className="text-base font-semibold">Todos os Registros Diarios</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Data</TableHead>
-                <TableHead>Nome</TableHead>
+                <TableHead>Criativo</TableHead>
                 <TableHead>Plataforma</TableHead>
                 <TableHead className="text-right">Alcance</TableHead>
                 <TableHead className="text-right">Conversoes</TableHead>
@@ -423,7 +554,7 @@ export function Criativos() {
               {sortedCriativos.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    Nenhum criativo registrado
+                    Nenhum registro
                   </TableCell>
                 </TableRow>
               ) : (
