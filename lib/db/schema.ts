@@ -4,6 +4,7 @@ import { pgTable, text, decimal, date, boolean, timestamp, integer } from 'drizz
 export const workspaces = pgTable('workspaces', {
   id: text('id').primaryKey(),
   nome: text('nome').notNull().default('Minha Planilha'),
+  ownerId: text('owner_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 })

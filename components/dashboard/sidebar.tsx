@@ -14,11 +14,11 @@ import {
   History,
   Link2,
   Check,
-  Plus
+  ArrowLeft
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 
 interface SidebarProps {
   activeTab: string
@@ -38,7 +38,7 @@ const menuItems = [
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [copied, setCopied] = useState(false)
-  const pathname = usePathname()
+  const router = useRouter()
 
   const handleCopyLink = async () => {
     const url = window.location.href
@@ -47,8 +47,8 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleNewWorkspace = () => {
-    window.open('/', '_blank')
+  const handleBackToList = () => {
+    router.push('/')
   }
 
   return (
@@ -135,20 +135,20 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
               ) : (
                 <>
                   <Link2 className="h-4 w-4" />
-                  Copiar Link do Cliente
+                  Copiar Link
                 </>
               )}
             </Button>
 
-            {/* Botao Nova Planilha */}
+            {/* Botao Voltar */}
             <Button
               variant="ghost"
               size="sm"
               className="w-full justify-start gap-2 text-muted-foreground"
-              onClick={handleNewWorkspace}
+              onClick={handleBackToList}
             >
-              <Plus className="h-4 w-4" />
-              Criar Nova Planilha
+              <ArrowLeft className="h-4 w-4" />
+              Minhas Planilhas
             </Button>
 
             <p className="text-xs text-muted-foreground text-center pt-2">

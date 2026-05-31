@@ -13,6 +13,7 @@ import { Historico } from '@/components/dashboard/historico'
 
 interface WorkspaceClientProps {
   workspaceId: string
+  workspaceName: string
   initialData: {
     gastos: any[]
     trafego: any[]
@@ -23,7 +24,7 @@ interface WorkspaceClientProps {
   }
 }
 
-export function WorkspaceClient({ workspaceId, initialData }: WorkspaceClientProps) {
+export function WorkspaceClient({ workspaceId, workspaceName, initialData }: WorkspaceClientProps) {
   const [activeTab, setActiveTab] = useState('dashboard')
 
   const renderContent = () => {

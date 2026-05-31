@@ -20,6 +20,23 @@ function generateId() {
 
 // ==================== WORKSPACE ====================
 
+export async function getWorkspaceData(workspaceId: string, userId: string) {
+  const result = await db.select().from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1)
+  
+  if (result.length === 0) {
+    return null
+  }
+  
+  const workspace = result[0]
+  
+  // Verificar se o workspace pertence ao usuario
+  if (workspace.ownerId && workspace.ownerId !== userId) {
+    return null
+  }
+  
+  return workspace
+}
+
 export async function getOrCreateWorkspace(workspaceId: string) {
   const existing = await db.select().from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1)
   
