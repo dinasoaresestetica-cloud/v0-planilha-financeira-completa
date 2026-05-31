@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from 'react'
-import { useData } from '@/lib/data-context'
+import { useState } from 'react'
+import { useData } from '@/lib/cloud-data-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,15 +14,6 @@ import { Plus, Pencil, Trash2, UserPlus, UserCheck, DollarSign, ShoppingCart } f
 import { mesesNomes } from '@/lib/types'
 import { StatsCard } from './stats-card'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
-
-// Tipo para registro de vendas por tipo de cliente
-interface ClienteAnalise {
-  id: string
-  data: string
-  quantidadeCompras: number
-  tipo: 'novo' | 'antigo'
-  valorTotal: number
-}
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', {
@@ -46,29 +37,17 @@ function getDateParts(dateString: string) {
 const COLORS = ['#3b82f6', '#22c55e']
 
 export function AnaliseClientes() {
-  const { mesAtual, anoAtual } = useData()
-  const [clientes, setClientes] = useState<ClienteAnalise[]>([])
+  const { 
+    analiseClientes, 
+    addAnaliseCliente, 
+    updateAnaliseCliente, 
+    deleteAnaliseCliente,
+    mesAtual, 
+    anoAtual 
+  } = useData()
+  
   const [isOpen, setIsOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [isLoaded, setIsLoaded] = useState(false)
-
-  // Carregar do localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('analise-clientes-v2')
-      if (stored) {
-        setClientes(JSON.parse(stored))
-      }
-      setIsLoaded(true)
-    }
-  }, [])
-
-  // Salvar no localStorage
-  useEffect(() => {
-    if (isLoaded && typeof window !== 'undefined') {
-      localStorage.setItem('analise-clientes-v2', JSON.stringify(clientes))
-    }
-  }, [clientes, isLoaded])
 
   const [formData, setFormData] = useState({
     data: new Date().toISOString().split('T')[0],
@@ -89,8 +68,7 @@ export function AnaliseClientes() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const cliente: ClienteAnalise = {
-      id: editingId || Math.random().toString(36).substring(2, 15),
+    const cliente = {
       data: formData.data,
       quantidadeCompras: parseInt(formData.quantidadeCompras) || 0,
       tipo: formData.tipo,
@@ -98,16 +76,16 @@ export function AnaliseClientes() {
     }
 
     if (editingId) {
-      setClientes(prev => prev.map(c => c.id === editingId ? cliente : c))
+      updateAnaliseCliente(editingId, cliente)
     } else {
-      setClientes(prev => [...prev, cliente])
+      addAnaliseCliente(cliente)
     }
     
     setIsOpen(false)
     resetForm()
   }
 
-  const handleEdit = (cliente: ClienteAnalise) => {
+  const handleEdit = (cliente: typeof analiseClientes[0]) => {
     setFormData({
       data: cliente.data,
       quantidadeCompras: cliente.quantidadeCompras.toString(),
@@ -119,11 +97,11 @@ export function AnaliseClientes() {
   }
 
   const handleDelete = (id: string) => {
-    setClientes(prev => prev.filter(c => c.id !== id))
+    deleteAnaliseCliente(id)
   }
 
   // Filtrar clientes do mes atual
-  const clientesMesAtual = clientes.filter(c => {
+  const clientesMesAtual = analiseClientes.filter(c => {
     const { year, month } = getDateParts(c.data)
     return month === mesAtual && year === anoAtual
   })

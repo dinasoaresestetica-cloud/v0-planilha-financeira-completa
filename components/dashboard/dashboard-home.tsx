@@ -1,22 +1,11 @@
 "use client"
 
-import { useData } from '@/lib/data-context'
+import { useData } from '@/lib/cloud-data-context'
 import { StatsCard } from './stats-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DollarSign, TrendingUp, TrendingDown, Users, Megaphone, UserPlus, UserCheck } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
 import { categoriasGasto } from '@/lib/types'
-import { useState, useEffect } from 'react'
-
-// Tipo para cliente na analise
-interface ClienteAnalise {
-  id: string
-  data: string
-  quantidadeClientes: number
-  quantidadeCompras: number
-  tipo: 'novo' | 'antigo'
-  valorTotal: number
-}
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', {
@@ -42,6 +31,7 @@ export function DashboardHome() {
     gastos, 
     trafego,
     vendasParceiros,
+    analiseClientes,
     getTotalGastos, 
     getTotalTrafego,
     getTotalVendasTrafego,
@@ -51,20 +41,8 @@ export function DashboardHome() {
   const currentMonth = now.getMonth() + 1
   const currentYear = now.getFullYear()
 
-  // Carregar dados de clientes da aba de analise
-  const [clientesAnalise, setClientesAnalise] = useState<ClienteAnalise[]>([])
-  
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('analise-clientes-v2')
-      if (stored) {
-        setClientesAnalise(JSON.parse(stored))
-      }
-    }
-  }, [])
-
-  // Filtrar clientes do mes atual
-  const clientesMesAtual = clientesAnalise.filter(c => {
+  // Filtrar clientes do mes atual (do contexto cloud)
+  const clientesMesAtual = analiseClientes.filter(c => {
     const { year, month } = getDateParts(c.data)
     return month === currentMonth && year === currentYear
   })
@@ -72,13 +50,11 @@ export function DashboardHome() {
   // Calculos de clientes
   const clientesNovos = clientesMesAtual.filter(c => c.tipo === 'novo')
   const clientesAntigos = clientesMesAtual.filter(c => c.tipo === 'antigo')
-  const totalClientesNovos = clientesNovos.reduce((sum, c) => sum + c.quantidadeClientes, 0)
-  const totalClientesAntigos = clientesAntigos.reduce((sum, c) => sum + c.quantidadeClientes, 0)
-  const totalClientes = totalClientesNovos + totalClientesAntigos
+  const vendasNovos = clientesNovos.reduce((sum, c) => sum + c.quantidadeCompras, 0)
+  const vendasAntigos = clientesAntigos.reduce((sum, c) => sum + c.quantidadeCompras, 0)
+  const totalVendasClientes = vendasNovos + vendasAntigos
   const valorClientesNovos = clientesNovos.reduce((sum, c) => sum + c.valorTotal, 0)
   const valorClientesAntigos = clientesAntigos.reduce((sum, c) => sum + c.valorTotal, 0)
-  const totalVendasClientes = clientesNovos.reduce((sum, c) => sum + c.quantidadeCompras, 0) + 
-    clientesAntigos.reduce((sum, c) => sum + c.quantidadeCompras, 0)
 
   // Calculos automaticos baseados em todos os dados
   const totalVendasTrafego = getTotalVendasTrafego(currentMonth, currentYear)
@@ -414,7 +390,7 @@ export function DashboardHome() {
       </div>
 
       {/* Resumo de Clientes */}
-      {totalClientes > 0 && (
+      {totalVendasClientes > 0 && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card className="border-blue-500/30 bg-blue-500/5">
             <CardContent className="p-4">
@@ -423,12 +399,12 @@ export function DashboardHome() {
                   <UserPlus className="h-5 w-5 text-blue-500" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Clientes Novos</p>
-                  <p className="text-xl font-bold">{totalClientesNovos}</p>
+                  <p className="text-xs text-muted-foreground">Vendas Novos</p>
+                  <p className="text-xl font-bold">{vendasNovos}</p>
                 </div>
               </div>
               <div className="mt-2 text-xs text-muted-foreground">
-                {formatCurrency(valorClientesNovos)} em vendas
+                {formatCurrency(valorClientesNovos)} em receita
               </div>
             </CardContent>
           </Card>
@@ -439,12 +415,12 @@ export function DashboardHome() {
                   <UserCheck className="h-5 w-5 text-green-500" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Clientes Antigos</p>
-                  <p className="text-xl font-bold">{totalClientesAntigos}</p>
+                  <p className="text-xs text-muted-foreground">Vendas Antigos</p>
+                  <p className="text-xl font-bold">{vendasAntigos}</p>
                 </div>
               </div>
               <div className="mt-2 text-xs text-muted-foreground">
-                {formatCurrency(valorClientesAntigos)} em vendas
+                {formatCurrency(valorClientesAntigos)} em receita
               </div>
             </CardContent>
           </Card>
@@ -455,12 +431,12 @@ export function DashboardHome() {
                   <Users className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Total Clientes</p>
-                  <p className="text-xl font-bold">{totalClientes}</p>
+                  <p className="text-xs text-muted-foreground">Total Vendas</p>
+                  <p className="text-xl font-bold">{totalVendasClientes}</p>
                 </div>
               </div>
               <div className="mt-2 text-xs text-muted-foreground">
-                {totalVendasClientes} vendas realizadas
+                Novos + Antigos
               </div>
             </CardContent>
           </Card>
@@ -471,12 +447,12 @@ export function DashboardHome() {
                   <DollarSign className="h-5 w-5 text-green-500" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Receita Clientes</p>
+                  <p className="text-xs text-muted-foreground">Receita Total</p>
                   <p className="text-xl font-bold">{formatCurrency(valorClientesNovos + valorClientesAntigos)}</p>
                 </div>
               </div>
               <div className="mt-2 text-xs text-muted-foreground">
-                {totalClientes > 0 ? formatCurrency((valorClientesNovos + valorClientesAntigos) / totalVendasClientes) : 'R$ 0'} ticket medio
+                {totalVendasClientes > 0 ? formatCurrency((valorClientesNovos + valorClientesAntigos) / totalVendasClientes) : 'R$ 0'} ticket medio
               </div>
             </CardContent>
           </Card>
