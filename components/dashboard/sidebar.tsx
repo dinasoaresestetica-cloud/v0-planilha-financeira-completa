@@ -11,10 +11,14 @@ import {
   Menu,
   X,
   Image,
-  History
+  History,
+  Link2,
+  Check,
+  Plus
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
+import { usePathname } from 'next/navigation'
 
 interface SidebarProps {
   activeTab: string
@@ -33,6 +37,19 @@ const menuItems = [
 
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const pathname = usePathname()
+
+  const handleCopyLink = async () => {
+    const url = window.location.href
+    await navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleNewWorkspace = () => {
+    window.open('/', '_blank')
+  }
 
   return (
     <>
@@ -102,8 +119,39 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           </nav>
 
           {/* Footer */}
-          <div className="px-4 py-4 border-t border-border">
-            <p className="text-xs text-muted-foreground text-center">
+          <div className="px-4 py-4 border-t border-border space-y-3">
+            {/* Botao Copiar Link */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start gap-2"
+              onClick={handleCopyLink}
+            >
+              {copied ? (
+                <>
+                  <Check className="h-4 w-4 text-green-500" />
+                  <span className="text-green-500">Link Copiado!</span>
+                </>
+              ) : (
+                <>
+                  <Link2 className="h-4 w-4" />
+                  Copiar Link do Cliente
+                </>
+              )}
+            </Button>
+
+            {/* Botao Nova Planilha */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start gap-2 text-muted-foreground"
+              onClick={handleNewWorkspace}
+            >
+              <Plus className="h-4 w-4" />
+              Criar Nova Planilha
+            </Button>
+
+            <p className="text-xs text-muted-foreground text-center pt-2">
               Planilha Financeira v1.0
             </p>
           </div>
