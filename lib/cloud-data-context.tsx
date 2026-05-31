@@ -120,6 +120,7 @@ export function CloudDataProvider({ children, workspaceId, initialData }: CloudD
       id: c.id,
       nome: c.nome,
       data: c.data,
+      plataforma: 'instagram' as const,
       pessoasAlcancadas: c.alcance || 0,
       conversoes: c.conversoes || 0,
       taxaConversao: c.alcance > 0 ? (c.conversoes / c.alcance) * 100 : 0,
