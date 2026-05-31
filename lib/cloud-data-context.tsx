@@ -107,8 +107,11 @@ export function CloudDataProvider({ children, workspaceId, initialData }: CloudD
       id: v.id,
       parceiroId: v.parceiroId,
       data: v.data,
+      mensagens: 0,
+      vendas: 1,
       valorTotal: Number(v.valorTotal),
       valorPagar: Number(v.valorPagar),
+      status: 'pendente' as const,
     }))
   )
   
