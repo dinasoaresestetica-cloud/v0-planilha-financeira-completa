@@ -269,7 +269,7 @@ export function Trafego() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatsCard
           title="Investido"
           value={formatCurrency(totalInvestido)}
@@ -287,7 +287,7 @@ export function Trafego() {
         <StatsCard
           title="ROI"
           value={`${roi.toFixed(1)}%`}
-          subtitle="Retorno"
+          subtitle={roi >= 0 ? 'Positivo' : 'Negativo'}
           icon={TrendingUp}
           variant={roi >= 0 ? 'success' : 'danger'}
         />
@@ -301,7 +301,7 @@ export function Trafego() {
         <StatsCard
           title="Vendas"
           value={totalVendas.toString()}
-          subtitle="Total"
+          subtitle={totalConversas > 0 ? `${((totalVendas/totalConversas)*100).toFixed(0)}% conversao` : 'Sem dados'}
           icon={ShoppingCart}
           variant="success"
         />
@@ -315,14 +315,14 @@ export function Trafego() {
       </div>
 
       {/* Charts */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2 xl:gap-8">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Investido vs Faturamento</CardTitle>
+            <CardTitle className="text-base">Evolucao - Investido vs Faturamento</CardTitle>
           </CardHeader>
           <CardContent>
             {getEvolucao().some(d => d.investido > 0 || d.faturamento > 0) ? (
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={getEvolucao()}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="date" className="text-xs" />
@@ -341,7 +341,7 @@ export function Trafego() {
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
                 <p>Nenhum dado de trafego registrado</p>
               </div>
             )}
@@ -350,11 +350,11 @@ export function Trafego() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Por Plataforma</CardTitle>
+            <CardTitle className="text-base">Desempenho por Plataforma</CardTitle>
           </CardHeader>
           <CardContent>
             {getDadosPorPlataforma().length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={getDadosPorPlataforma()}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="name" className="text-xs" />
@@ -373,7 +373,7 @@ export function Trafego() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
                 <p>Nenhum dado de trafego registrado</p>
               </div>
             )}
