@@ -1,22 +1,11 @@
 "use client"
 
-import { useData } from '@/lib/data-context'
+import { useData } from '@/lib/cloud-data-context'
 import { StatsCard } from './stats-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { DollarSign, TrendingUp, TrendingDown, Users, Megaphone, ShoppingCart, UserPlus, UserCheck } from 'lucide-react'
+import { DollarSign, TrendingUp, TrendingDown, Users, Megaphone, UserPlus, UserCheck } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
 import { categoriasGasto } from '@/lib/types'
-import { useState, useEffect } from 'react'
-
-// Tipo para cliente na analise
-interface ClienteAnalise {
-  id: string
-  data: string
-  quantidadeClientes: number
-  quantidadeCompras: number
-  tipo: 'novo' | 'antigo'
-  valorTotal: number
-}
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', {
@@ -41,7 +30,8 @@ export function DashboardHome() {
   const { 
     gastos, 
     trafego,
-    parceiros,
+    vendasParceiros,
+    analiseClientes,
     getTotalGastos, 
     getTotalTrafego,
     getTotalVendasTrafego,
@@ -51,20 +41,8 @@ export function DashboardHome() {
   const currentMonth = now.getMonth() + 1
   const currentYear = now.getFullYear()
 
-  // Carregar dados de clientes da aba de analise
-  const [clientesAnalise, setClientesAnalise] = useState<ClienteAnalise[]>([])
-  
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('analise-clientes-v2')
-      if (stored) {
-        setClientesAnalise(JSON.parse(stored))
-      }
-    }
-  }, [])
-
-  // Filtrar clientes do mes atual
-  const clientesMesAtual = clientesAnalise.filter(c => {
+  // Filtrar clientes do mes atual (do contexto cloud)
+  const clientesMesAtual = analiseClientes.filter(c => {
     const { year, month } = getDateParts(c.data)
     return month === currentMonth && year === currentYear
   })
@@ -72,13 +50,11 @@ export function DashboardHome() {
   // Calculos de clientes
   const clientesNovos = clientesMesAtual.filter(c => c.tipo === 'novo')
   const clientesAntigos = clientesMesAtual.filter(c => c.tipo === 'antigo')
-  const totalClientesNovos = clientesNovos.reduce((sum, c) => sum + c.quantidadeClientes, 0)
-  const totalClientesAntigos = clientesAntigos.reduce((sum, c) => sum + c.quantidadeClientes, 0)
-  const totalClientes = totalClientesNovos + totalClientesAntigos
+  const vendasNovos = clientesNovos.reduce((sum, c) => sum + c.quantidadeCompras, 0)
+  const vendasAntigos = clientesAntigos.reduce((sum, c) => sum + c.quantidadeCompras, 0)
+  const totalVendasClientes = vendasNovos + vendasAntigos
   const valorClientesNovos = clientesNovos.reduce((sum, c) => sum + c.valorTotal, 0)
   const valorClientesAntigos = clientesAntigos.reduce((sum, c) => sum + c.valorTotal, 0)
-  const totalVendasClientes = clientesNovos.reduce((sum, c) => sum + c.quantidadeCompras, 0) + 
-    clientesAntigos.reduce((sum, c) => sum + c.quantidadeCompras, 0)
 
   // Calculos automaticos baseados em todos os dados
   const totalVendasTrafego = getTotalVendasTrafego(currentMonth, currentYear)
@@ -92,12 +68,24 @@ export function DashboardHome() {
   // Soma total de todos os gastos do mes (gastos operacionais + investimento em trafego)
   const gastosTotal = totalGastos + totalTrafego
   
-  // Calculo de lucro dos parceiros (participacao no faturamento)
-  const totalPorcentagemParceiros = parceiros.reduce((sum, p) => sum + p.porcentagem, 0)
-  const lucroParceiros = faturamentoTotal * (totalPorcentagemParceiros / 100)
+  // Calculo de comissao dos parceiros - APENAS sobre vendas que eles fizeram
+  // Filtrar vendas do mes atual
+  const vendasParceirosMes = vendasParceiros.filter(v => {
+    const { year, month } = getDateParts(v.data)
+    return month === currentMonth && year === currentYear
+  })
+  // Total de comissoes a pagar = soma do valorPagar de cada venda
+  const totalComissoesParceiros = vendasParceirosMes.reduce((sum, v) => sum + v.valorPagar, 0)
+  // Vendas realizadas por parceiros (para mostrar separado)
+  const totalVendasParceiros = vendasParceirosMes.reduce((sum, v) => sum + v.valorTotal, 0)
   
-  // Lucro liquido real (faturamento - gastos - participacao parceiros)
-  const lucroLiquido = faturamentoTotal - gastosTotal - lucroParceiros
+  // LUCRO REAL:
+  // Lucro = Faturamento - Custos Operacionais - Investimento em Trafego
+  // A comissao do parceiro NAO e um custo, e uma divisao do lucro das vendas DELE
+  const lucroLiquido = faturamentoTotal - gastosTotal
+  
+  // Seu lucro real (apos pagar a parte dos parceiros das vendas DELES)
+  const seuLucroReal = lucroLiquido - totalComissoesParceiros
   
   const totalConversas = trafego.filter(t => {
     const { year, month } = getDateParts(t.data)
@@ -140,17 +128,15 @@ export function DashboardHome() {
         })
         .reduce((sum, t) => sum + t.valorInvestido, 0)
       
-      // Lucro parceiros do mes
-      const lucroParcMes = faturamentoMes * (totalPorcentagemParceiros / 100)
-      
       // Total de gastos do mes = gastos operacionais + trafego (apenas gastos reais)
+      // Comissao de parceiro NAO e gasto, e divisao de lucro
       const gastosTotalMes = gastosMes + trafegoMes
       
       return {
         name: month,
         faturamento: faturamentoMes,
         gastos: gastosTotalMes,
-        lucro: faturamentoMes - gastosTotalMes - lucroParcMes,
+        lucro: faturamentoMes - gastosTotalMes,
       }
     })
   }
@@ -189,28 +175,32 @@ export function DashboardHome() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatsCard
           title="Faturamento Total"
           value={formatCurrency(faturamentoTotal)}
-          subtitle="Receitas + Vendas"
+          subtitle="Vendas do trafego pago"
           icon={DollarSign}
           variant="default"
         />
         <StatsCard
-          title="Gastos Totais"
+          title="Custos Totais"
           value={formatCurrency(gastosTotal)}
-          subtitle="Operacionais + Trafego"
+          subtitle={`Operacionais: ${formatCurrency(totalGastos)} | Trafego: ${formatCurrency(totalTrafego)}`}
           icon={TrendingDown}
           variant="danger"
         />
         <StatsCard
           title="Lucro Liquido"
           value={formatCurrency(lucroLiquido)}
-          subtitle="Faturamento - Gastos"
+          subtitle="Faturamento - Custos"
           icon={TrendingUp}
           variant={lucroLiquido >= 0 ? 'success' : 'danger'}
         />
+      </div>
+
+      {/* Segunda linha de stats */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Trafego Pago"
           value={formatCurrency(totalTrafego)}
@@ -219,18 +209,25 @@ export function DashboardHome() {
           variant="warning"
         />
         <StatsCard
-          title="Lucro Parceiros"
-          value={formatCurrency(lucroParceiros)}
-          subtitle={`${totalPorcentagemParceiros}% do faturamento`}
+          title="ROI Trafego"
+          value={totalTrafego > 0 ? `${Math.round(((totalVendasTrafego - totalTrafego) / totalTrafego) * 100)}%` : '0%'}
+          subtitle={`Investido: ${formatCurrency(totalTrafego)} | Retorno: ${formatCurrency(totalVendasTrafego)}`}
+          icon={TrendingUp}
+          variant={totalVendasTrafego > totalTrafego ? 'success' : 'danger'}
+        />
+        <StatsCard
+          title="Comissao Parceiros"
+          value={formatCurrency(totalComissoesParceiros)}
+          subtitle={totalVendasParceiros > 0 ? `De ${formatCurrency(totalVendasParceiros)} em vendas deles` : 'Nenhuma venda de parceiro'}
           icon={Users}
           variant="warning"
         />
         <StatsCard
-          title="Taxa Conversao"
-          value={totalConversas > 0 ? `${Math.round((totalVendasTrafegoCount / totalConversas) * 100)}%` : '0%'}
-          subtitle="Vendas / Conversas"
-          icon={ShoppingCart}
-          variant="success"
+          title="Seu Lucro Final"
+          value={formatCurrency(seuLucroReal)}
+          subtitle="Lucro - Comissao parceiros"
+          icon={DollarSign}
+          variant={seuLucroReal >= 0 ? 'success' : 'danger'}
         />
       </div>
 
@@ -393,7 +390,7 @@ export function DashboardHome() {
       </div>
 
       {/* Resumo de Clientes */}
-      {totalClientes > 0 && (
+      {totalVendasClientes > 0 && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card className="border-blue-500/30 bg-blue-500/5">
             <CardContent className="p-4">
@@ -402,12 +399,12 @@ export function DashboardHome() {
                   <UserPlus className="h-5 w-5 text-blue-500" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Clientes Novos</p>
-                  <p className="text-xl font-bold">{totalClientesNovos}</p>
+                  <p className="text-xs text-muted-foreground">Vendas Novos</p>
+                  <p className="text-xl font-bold">{vendasNovos}</p>
                 </div>
               </div>
               <div className="mt-2 text-xs text-muted-foreground">
-                {formatCurrency(valorClientesNovos)} em vendas
+                {formatCurrency(valorClientesNovos)} em receita
               </div>
             </CardContent>
           </Card>
@@ -418,12 +415,12 @@ export function DashboardHome() {
                   <UserCheck className="h-5 w-5 text-green-500" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Clientes Antigos</p>
-                  <p className="text-xl font-bold">{totalClientesAntigos}</p>
+                  <p className="text-xs text-muted-foreground">Vendas Antigos</p>
+                  <p className="text-xl font-bold">{vendasAntigos}</p>
                 </div>
               </div>
               <div className="mt-2 text-xs text-muted-foreground">
-                {formatCurrency(valorClientesAntigos)} em vendas
+                {formatCurrency(valorClientesAntigos)} em receita
               </div>
             </CardContent>
           </Card>
@@ -434,12 +431,12 @@ export function DashboardHome() {
                   <Users className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Total Clientes</p>
-                  <p className="text-xl font-bold">{totalClientes}</p>
+                  <p className="text-xs text-muted-foreground">Total Vendas</p>
+                  <p className="text-xl font-bold">{totalVendasClientes}</p>
                 </div>
               </div>
               <div className="mt-2 text-xs text-muted-foreground">
-                {totalVendasClientes} vendas realizadas
+                Novos + Antigos
               </div>
             </CardContent>
           </Card>
@@ -450,12 +447,12 @@ export function DashboardHome() {
                   <DollarSign className="h-5 w-5 text-green-500" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Receita Clientes</p>
+                  <p className="text-xs text-muted-foreground">Receita Total</p>
                   <p className="text-xl font-bold">{formatCurrency(valorClientesNovos + valorClientesAntigos)}</p>
                 </div>
               </div>
               <div className="mt-2 text-xs text-muted-foreground">
-                {totalClientes > 0 ? formatCurrency((valorClientesNovos + valorClientesAntigos) / totalVendasClientes) : 'R$ 0'} ticket medio
+                {totalVendasClientes > 0 ? formatCurrency((valorClientesNovos + valorClientesAntigos) / totalVendasClientes) : 'R$ 0'} ticket medio
               </div>
             </CardContent>
           </Card>
@@ -519,21 +516,34 @@ export function DashboardHome() {
               <span className="font-semibold text-sm text-primary">{formatCurrency(faturamentoTotal)}</span>
             </div>
             <div className="flex justify-between items-center p-2 bg-accent/30 rounded">
-              <span className="text-sm">(-) Gastos</span>
+              <span className="text-sm">(-) Custos (Operacional + Trafego)</span>
               <span className="font-semibold text-sm text-destructive">{formatCurrency(gastosTotal)}</span>
             </div>
-            <div className="flex justify-between items-center p-2 bg-accent/30 rounded">
-              <span className="text-sm">(-) Lucro Parceiros</span>
-              <span className="font-semibold text-sm text-warning">{formatCurrency(lucroParceiros)}</span>
-            </div>
-            <div className={`flex justify-between items-center p-4 rounded border mt-4 ${lucroLiquido >= 0 ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
-              <span className="font-bold">Lucro Liquido</span>
-              <span className={`font-bold text-xl ${lucroLiquido >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+            <div className={`flex justify-between items-center p-3 rounded border ${lucroLiquido >= 0 ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+              <span className="font-medium">= Lucro</span>
+              <span className={`font-bold ${lucroLiquido >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                 {formatCurrency(lucroLiquido)}
               </span>
             </div>
+            {totalComissoesParceiros > 0 && (
+              <>
+                <div className="flex justify-between items-center p-2 bg-orange-500/10 rounded">
+                  <span className="text-sm">(-) Comissao Parceiros</span>
+                  <span className="font-semibold text-sm text-orange-600">{formatCurrency(totalComissoesParceiros)}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  *Comissao sobre {formatCurrency(totalVendasParceiros)} em vendas realizadas por parceiros
+                </p>
+              </>
+            )}
+            <div className={`flex justify-between items-center p-4 rounded border mt-4 ${seuLucroReal >= 0 ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+              <span className="font-bold">Seu Lucro Final</span>
+              <span className={`font-bold text-xl ${seuLucroReal >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                {formatCurrency(seuLucroReal)}
+              </span>
+            </div>
             <div className="text-center text-xs text-muted-foreground mt-2">
-              {lucroLiquido >= 0 ? 'Voce esta no positivo!' : 'Atencao: resultado negativo'}
+              {seuLucroReal >= 0 ? 'Voce esta no positivo!' : 'Atencao: resultado negativo'}
             </div>
           </CardContent>
         </Card>

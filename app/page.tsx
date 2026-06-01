@@ -1,52 +1,39 @@
-"use client"
+import { auth } from '@/lib/auth'
+import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
+import { db } from '@/lib/db'
+import { workspaces } from '@/lib/db/schema'
+import { eq, desc } from 'drizzle-orm'
+import { DashboardClient } from './dashboard-client'
 
-import { useState } from 'react'
-import { DataProvider } from '@/lib/data-context'
-import { Sidebar } from '@/components/dashboard/sidebar'
-import { DashboardHome } from '@/components/dashboard/dashboard-home'
-import { Gastos } from '@/components/dashboard/gastos'
-import { Trafego } from '@/components/dashboard/trafego'
-import { Criativos } from '@/components/dashboard/criativos'
-import { Parceiros } from '@/components/dashboard/parceiros'
-import { AnaliseClientes } from '@/components/dashboard/analise-clientes'
-import { Historico } from '@/components/dashboard/historico'
-
-export default function Home() {
-  const [activeTab, setActiveTab] = useState('dashboard')
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return <DashboardHome />
-      case 'gastos':
-        return <Gastos />
-      case 'trafego':
-        return <Trafego />
-      case 'criativos':
-        return <Criativos />
-      case 'parceiros':
-        return <Parceiros />
-      case 'analise-clientes':
-        return <AnaliseClientes />
-      case 'historico':
-        return <Historico />
-      default:
-        return <DashboardHome />
-    }
+export default async function HomePage() {
+  const session = await auth.api.getSession({ headers: await headers() })
+  
+  if (!session?.user) {
+    redirect('/entrar')
   }
 
+  // Buscar workspaces do usuario usando Drizzle
+  const result = await db
+    .select({
+      id: workspaces.id,
+      nome: workspaces.nome,
+      createdAt: workspaces.createdAt,
+    })
+    .from(workspaces)
+    .where(eq(workspaces.ownerId, session.user.id))
+    .orderBy(desc(workspaces.createdAt))
+
+  const userWorkspaces = result.map(row => ({
+    id: row.id,
+    nome: row.nome,
+    createdAt: row.createdAt?.toISOString() || new Date().toISOString(),
+  }))
+
   return (
-    <DataProvider>
-      <div className="min-h-screen bg-background">
-        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-        <main className="lg:pl-72">
-          <div className="w-full px-4 py-6 pt-16 lg:pt-8 lg:px-8 xl:px-12 2xl:px-16">
-            <div className="max-w-[1600px] mx-auto">
-              {renderContent()}
-            </div>
-          </div>
-        </main>
-      </div>
-    </DataProvider>
+    <DashboardClient 
+      user={{ id: session.user.id, name: session.user.name, email: session.user.email }}
+      workspaces={userWorkspaces}
+    />
   )
 }
