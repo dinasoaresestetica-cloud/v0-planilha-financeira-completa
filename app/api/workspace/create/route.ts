@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { workspaces } from '@/lib/db/schema'
 
 export async function POST(request: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -15,10 +16,11 @@ export async function POST(request: Request) {
 
   const id = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
   
-  await db.query(
-    'INSERT INTO workspaces (id, nome, owner_id) VALUES ($1, $2, $3)',
-    [id, nome, session.user.id]
-  )
+  await db.insert(workspaces).values({
+    id,
+    nome,
+    ownerId: session.user.id,
+  })
 
   return NextResponse.json({ id, nome })
 }
