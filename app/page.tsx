@@ -2,6 +2,8 @@ import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
+import { workspaces } from '@/lib/db/schema'
+import { eq, desc } from 'drizzle-orm'
 import { DashboardClient } from './dashboard-client'
 
 export default async function HomePage() {
@@ -11,22 +13,27 @@ export default async function HomePage() {
     redirect('/entrar')
   }
 
-  // Buscar workspaces do usuario
-  const result = await db.query(
-    'SELECT id, nome, created_at FROM workspaces WHERE owner_id = $1 ORDER BY created_at DESC',
-    [session.user.id]
-  )
+  // Buscar workspaces do usuario usando Drizzle
+  const result = await db
+    .select({
+      id: workspaces.id,
+      nome: workspaces.nome,
+      createdAt: workspaces.createdAt,
+    })
+    .from(workspaces)
+    .where(eq(workspaces.ownerId, session.user.id))
+    .orderBy(desc(workspaces.createdAt))
 
-  const workspaces = result.rows.map(row => ({
+  const userWorkspaces = result.map(row => ({
     id: row.id,
     nome: row.nome,
-    createdAt: row.created_at.toISOString(),
+    createdAt: row.createdAt?.toISOString() || new Date().toISOString(),
   }))
 
   return (
     <DashboardClient 
       user={{ id: session.user.id, name: session.user.name, email: session.user.email }}
-      workspaces={workspaces}
+      workspaces={userWorkspaces}
     />
   )
 }
