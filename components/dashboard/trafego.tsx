@@ -396,8 +396,67 @@ export function Trafego() {
         )}
       </div>
 
-      {/* Table */}
-      <Card>
+      {/* Mobile Cards - Visivel apenas em telas pequenas */}
+      <div className="block md:hidden space-y-3">
+        {filteredTrafego.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              Nenhum registro de trafego
+            </CardContent>
+          </Card>
+        ) : (
+          filteredTrafego.map((t) => (
+            <Card key={t.id}>
+              <CardContent className="p-4">
+                {/* Header do card com data, plataforma e acoes */}
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="font-semibold text-base">{t.plataforma}</p>
+                    <p className="text-xs text-muted-foreground">{formatDate(t.data)}</p>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(t)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => deleteTrafego(t.id)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Grid de metricas */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-amber-500/10 rounded-lg p-2">
+                    <p className="text-xs text-muted-foreground">Investido</p>
+                    <p className="font-semibold text-amber-500">{formatCurrency(t.valorInvestido)}</p>
+                  </div>
+                  <div className="bg-green-500/10 rounded-lg p-2">
+                    <p className="text-xs text-muted-foreground">Faturamento</p>
+                    <p className="font-semibold text-green-500">{formatCurrency(t.faturamento)}</p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-2">
+                    <p className="text-xs text-muted-foreground">Conversas</p>
+                    <p className="font-semibold">{t.conversas}</p>
+                  </div>
+                  <div className="bg-muted/50 rounded-lg p-2">
+                    <p className="text-xs text-muted-foreground">Vendas</p>
+                    <p className="font-semibold">{t.vendas}</p>
+                  </div>
+                </div>
+                
+                {/* Custo por conversa */}
+                <div className="mt-3 pt-3 border-t border-border flex justify-between text-sm">
+                  <span className="text-muted-foreground">Custo/Conversa:</span>
+                  <span className="font-medium">{formatCurrency(t.custoConversa)}</span>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+
+      {/* Desktop Table - Visivel apenas em telas medias e grandes */}
+      <Card className="hidden md:block">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -424,11 +483,11 @@ export function Trafego() {
                   <TableRow key={t.id}>
                     <TableCell>{formatDate(t.data)}</TableCell>
                     <TableCell className="font-medium">{t.plataforma}</TableCell>
-                    <TableCell className="text-right text-warning">{formatCurrency(t.valorInvestido)}</TableCell>
+                    <TableCell className="text-right text-amber-500">{formatCurrency(t.valorInvestido)}</TableCell>
                     <TableCell className="text-right">{t.conversas}</TableCell>
                     <TableCell className="text-right">{formatCurrency(t.custoConversa)}</TableCell>
                     <TableCell className="text-right">{t.vendas}</TableCell>
-                    <TableCell className="text-right font-semibold text-success">{formatCurrency(t.faturamento)}</TableCell>
+                    <TableCell className="text-right font-semibold text-green-500">{formatCurrency(t.faturamento)}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" onClick={() => handleEdit(t)}>
