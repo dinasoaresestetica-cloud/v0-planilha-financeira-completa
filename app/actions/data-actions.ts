@@ -24,13 +24,26 @@ export async function getWorkspaceData(workspaceId: string, userId: string) {
   const result = await db.select().from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1)
   
   if (result.length === 0) {
-    return null
+    // Workspace nao existe - criar novo para o usuario
+    const newWorkspace = {
+      id: workspaceId,
+      nome: 'Minha Planilha',
+      ownerId: userId,
+    }
+    await db.insert(workspaces).values(newWorkspace)
+    return newWorkspace
   }
   
   const workspace = result[0]
   
+  // Se o workspace nao tem dono, associar ao usuario atual
+  if (!workspace.ownerId) {
+    await db.update(workspaces).set({ ownerId: userId }).where(eq(workspaces.id, workspaceId))
+    return { ...workspace, ownerId: userId }
+  }
+  
   // Verificar se o workspace pertence ao usuario
-  if (workspace.ownerId && workspace.ownerId !== userId) {
+  if (workspace.ownerId !== userId) {
     return null
   }
   

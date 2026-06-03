@@ -22,6 +22,10 @@ interface CloudDataContextType {
   analiseClientes: AnaliseCliente[]
   mesAtual: number
   anoAtual: number
+  mesSelecionado: number
+  anoSelecionado: number
+  setMesSelecionado: (mes: number) => void
+  setAnoSelecionado: (ano: number) => void
   isSaving: boolean
   workspaceId: string
   addGasto: (gasto: Omit<Gasto, 'id'>) => Promise<void>
@@ -140,6 +144,10 @@ export function CloudDataProvider({ children, workspaceId, initialData }: CloudD
   const now = new Date()
   const mesAtual = now.getMonth() + 1
   const anoAtual = now.getFullYear()
+  
+  // Estado para mes/ano selecionado (para filtrar dados)
+  const [mesSelecionado, setMesSelecionado] = useState(mesAtual)
+  const [anoSelecionado, setAnoSelecionado] = useState(anoAtual)
 
   // ==================== GASTOS ====================
   
@@ -413,6 +421,10 @@ export function CloudDataProvider({ children, workspaceId, initialData }: CloudD
       analiseClientes,
       mesAtual,
       anoAtual,
+      mesSelecionado,
+      anoSelecionado,
+      setMesSelecionado,
+      setAnoSelecionado,
       isSaving: isPending,
       workspaceId,
       addGasto,
