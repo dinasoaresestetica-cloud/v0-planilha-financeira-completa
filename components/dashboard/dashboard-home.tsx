@@ -3,7 +3,8 @@
 import { useData } from '@/lib/cloud-data-context'
 import { StatsCard } from './stats-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { DollarSign, TrendingUp, TrendingDown, Users, Megaphone, UserPlus, UserCheck } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DollarSign, TrendingUp, TrendingDown, Users, Megaphone, UserPlus, UserCheck, Calendar } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
 import { categoriasGasto } from '@/lib/types'
 
@@ -26,6 +27,8 @@ function getDateParts(dateString: string) {
   return { year, month, day }
 }
 
+const mesesNomes = ['Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+
 export function DashboardHome() {
   const { 
     gastos, 
@@ -35,11 +38,16 @@ export function DashboardHome() {
     getTotalGastos, 
     getTotalTrafego,
     getTotalVendasTrafego,
+    mesSelecionado,
+    anoSelecionado,
+    setMesSelecionado,
+    setAnoSelecionado,
+    anoAtual,
   } = useData()
 
-  const now = new Date()
-  const currentMonth = now.getMonth() + 1
-  const currentYear = now.getFullYear()
+  // Usar mes/ano selecionado
+  const currentMonth = mesSelecionado
+  const currentYear = anoSelecionado
 
   // Filtrar clientes do mes atual (do contexto cloud)
   const clientesMesAtual = analiseClientes.filter(c => {
@@ -168,10 +176,40 @@ export function DashboardHome() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="pb-2">
-        <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">Visao geral do seu negocio</p>
+      {/* Header com Seletor de Mes */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Visao geral do seu negocio</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <Select 
+            value={`${currentMonth}-${currentYear}`} 
+            onValueChange={(v) => {
+              const [mes, ano] = v.split('-').map(Number)
+              setMesSelecionado(mes)
+              setAnoSelecionado(ano)
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {/* Gerar opcoes para os ultimos 12 meses */}
+              {Array.from({ length: 12 }, (_, i) => {
+                const date = new Date(anoAtual, new Date().getMonth() - i, 1)
+                const mes = date.getMonth() + 1
+                const ano = date.getFullYear()
+                return (
+                  <SelectItem key={`${mes}-${ano}`} value={`${mes}-${ano}`}>
+                    {mesesNomes[mes - 1]} {ano}
+                  </SelectItem>
+                )
+              })}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Stats Cards */}
