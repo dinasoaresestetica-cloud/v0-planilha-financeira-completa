@@ -58,12 +58,12 @@ export function DashboardClient({ user, workspaces: initialWorkspaces }: Dashboa
     router.refresh()
   }
 
+  // Formatar data de forma consistente entre servidor e cliente
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    })
+    // Usar apenas a parte da data (YYYY-MM-DD) para evitar problemas de timezone
+    const datePart = dateString.split('T')[0]
+    const [year, month, day] = datePart.split('-')
+    return `${day}/${month}/${year}`
   }
 
   return (
