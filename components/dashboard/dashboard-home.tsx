@@ -89,11 +89,15 @@ export function DashboardHome() {
   
   // LUCRO REAL:
   // Lucro = Faturamento - Custos Operacionais - Investimento em Trafego
-  // A comissao do parceiro NAO e um custo, e uma divisao do lucro das vendas DELE
   const lucroLiquido = faturamentoTotal - gastosTotal
   
-  // Seu lucro real (apos pagar a parte dos parceiros das vendas DELES)
-  const seuLucroReal = lucroLiquido - totalComissoesParceiros
+  // Lucro das vendas dos parceiros: a parte que fica com voce apos pagar a comissao deles.
+  // A comissao NAO e um custo do seu negocio, e apenas a divisao do lucro das vendas DELES.
+  const lucroParceiros = totalVendasParceiros - totalComissoesParceiros
+  
+  // Seu lucro final = seu lucro proprio + sua parte do lucro das vendas dos parceiros.
+  // A comissao nunca reduz o seu lucro proprio (nunca gera prejuizo ficticio).
+  const seuLucroReal = lucroLiquido + lucroParceiros
   
   const totalConversas = trafego.filter(t => {
     const { year, month } = getDateParts(t.data)
@@ -248,7 +252,7 @@ export function DashboardHome() {
         />
         <StatsCard
           title="ROI Trafego"
-          value={totalTrafego > 0 ? `${Math.round(((totalVendasTrafego - totalTrafego) / totalTrafego) * 100)}%` : '0%'}
+          value={totalTrafego > 0 ? `${(totalVendasTrafego / totalTrafego).toFixed(2)}x` : '0.00x'}
           subtitle={`Investido: ${formatCurrency(totalTrafego)} | Retorno: ${formatCurrency(totalVendasTrafego)}`}
           icon={TrendingUp}
           variant={totalVendasTrafego > totalTrafego ? 'success' : 'danger'}
@@ -263,7 +267,7 @@ export function DashboardHome() {
         <StatsCard
           title="Seu Lucro Final"
           value={formatCurrency(seuLucroReal)}
-          subtitle="Lucro - Comissao parceiros"
+          subtitle="Lucro + sua parte das vendas dos parceiros"
           icon={DollarSign}
           variant={seuLucroReal >= 0 ? 'success' : 'danger'}
         />
@@ -396,7 +400,7 @@ export function DashboardHome() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-medium">ROI do Mes</span>
                     <span className={`font-bold ${totalVendasTrafego > totalTrafego ? 'text-green-600' : 'text-red-500'}`}>
-                      {totalTrafego > 0 ? `${Math.round(((totalVendasTrafego - totalTrafego) / totalTrafego) * 100)}%` : '0%'}
+                      {totalTrafego > 0 ? `${(totalVendasTrafego / totalTrafego).toFixed(2)}x` : '0.00x'}
                     </span>
                   </div>
                   <div className="flex justify-between text-xs text-muted-foreground mt-1">

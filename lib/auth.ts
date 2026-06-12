@@ -20,6 +20,12 @@ export const auth = betterAuth({
     ...(process.env.VERCEL_PROJECT_PRODUCTION_URL
       ? [`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`]
       : []),
+    // Wildcards para os dominios de preview do v0 e da Vercel.
+    // O Better Auth faz o match do wildcard contra apenas o HOST (sem protocolo),
+    // entao os patterns NAO devem incluir "https://".
+    '*.vusercontent.net',
+    '*.v0.app',
+    '*.vercel.app',
   ],
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days
